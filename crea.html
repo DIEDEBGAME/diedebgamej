@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DIEDEB FOOTBALL HYBRID</title>
+    <style>
+        :root { --neon: #00ffff; --gold: #ffcc00; --pitch: #2e7d32; }
+        body { margin: 0; background: #000; color: white; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; }
+        
+        /* GESTIÓN */
+        #menu-layer { position: absolute; inset: 0; background: rgba(0,0,0,0.95); z-index: 100; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; }
+        .stat-box { display: flex; gap: 20px; font-size: 18px; margin-bottom: 20px; color: var(--neon); border: 1px solid #333; padding: 10px; border-radius: 10px; }
+        #squad-list { width: 95%; background: #111; border-radius: 10px; padding: 10px; margin-bottom: 20px; border: 1px solid #444; }
+        .p-row { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #222; font-size: 11px; align-items: center; }
+
+        /* BOTONES */
+        .btn { background: #111; border: 2px solid var(--neon); color: white; padding: 15px; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 5px; width: 85%; max-width: 300px; text-transform: uppercase; font-size: 14px; }
+        .btn:active { background: var(--neon); color: #000; scale: 0.95; }
+
+        /* INTERFAZ PARTIDO */
+        #match-ui { position: absolute; top: 0; width: 100%; padding: 10px; background: rgba(0,0,0,0.85); display: none; justify-content: space-around; z-index: 10; border-bottom: 2px solid var(--neon); }
+        #tactic-bar { position: absolute; bottom: 20px; width: 100%; display: none; justify-content: center; gap: 10px; z-index: 50; padding: 0 10px; box-sizing: border-box; }
+        .t-btn { flex: 1; max-width: 120px; font-size: 10px; padding: 15px 5px; }
+
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+<div id="menu-layer">
+    <h1 style="color:var(--neon)">DIEDEB STADIUM</h1>
+    <h3 id="season-title" style="color:var(--gold)">Temporada 1</h3>
+    <div class="stat-box">
+        <div>💰 $<span id="m-money">500</span></div>
+        <div>⚽ <span id="m-match">1</span>/10</div>
+    </div>
+    <div id="squad-list"><div id="list-content"></div></div>
+    <button class="btn" style="border-color:var(--gold); color:var(--gold);" onclick="trainSquad()">ENTRENAR ($150)</button>
+    <button class="btn" onclick="scoutPlayer()">FICHAR ESTRELLA ($400)</button>
+    <button class="btn" style="background:var(--pitch); border-color:white;" onclick="startMatch()">JUGAR PARTIDO</button>
+</div>
+
+<div id="match-ui">
+    <div style="font-size:20px;"><span id="score">0 - 0</span></div>
+    <div id="timer" style="color:var(--gold)">02:00</div>
+</div>
+
+<div id="tactic-bar">
+    <button class="btn t-btn" id="btn-DEL" onclick="setTactic('DEL')">ATAQUE (1)</button>
+    <button class="btn t-btn" id="btn-MED" onclick="setTactic('MED')">MEDIOS (2)</button>
+    <button class="btn t-btn" id="btn-DEF" onclick="setTactic('DEF')">DEFENSA (3)</button>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+    let money = 500, season = 1, matchCount = 1, wins = 0;
+    let squad = [], rivals = [], ball = {x:0, y:0, vx:0, vy:0};
+    let isMatch = false, timeLeft = 120, score = [0,0], selectedPlayer = null, currentTactic = "NONE";
+
+    function initBase() {
+        squad = [];
+        addP(squad, "EL MALOTE", "DEL", 450, canvas.height/2 - 40, "#ff0055", 85);
+        addP(squad, "DEL-2", "DEL", 450, canvas.height/2 + 40, "#0077ff", 70);
+        addP(squad, "MED-1", "MED", 300, canvas.height/2 - 60, "#0077ff", 65);
+        addP(squad, "MED-2", "MED", 300, canvas.height/2 + 60, "#0077ff", 65);
+        addP(squad, "DEF-1", "DEF", 150, canvas.height/2 - 80, "#0077ff", 65);
+        addP(squad, "DEF-2", "DEF", 150, canvas.height/2, "#0077ff", 65);
+        addP(squad, "DEF-3", "DEF", 150, canvas.height/2 + 80, "#0077ff", 65);
+        addP(squad, "PORTERO", "POR", 60, canvas.height/2, "#00ffaa", 75);
+        updateUI();
+    }
+
+    function addP(l, n, r, x, y, c, ovr) {
+        l.push({ name: n, role: r, x, y, homeX: x, homeY: y, color: c, ovr, targetX: x, targetY: y, lastHit: 0 });
+    }
+
+    function updateUI() {
+        document.getElementById('m-money').innerText = money;
+        document.getElementById('m-match').innerText = matchCount;
+        document.getElementById('season-title').innerText = "Temporada " + season;
+        document.getElementById('list-content').innerHTML = squad.map((p, i) => `
+            <div class="p-row"><span><b>${p.name}</b></span><span>OVR: ${p.ovr}</span><button onclick="sellPlayer(${i})" style="background:#500;color:white;border:none;padding:5px;">VENDER</button></div>
+        `).join('');
+    }
+
+    function trainSquad() { if(money>=150){ money-=150; squad.forEach(p=>p.ovr+=3); updateUI(); } }
+    function scoutPlayer() { if(money>=400 && squad.length<11){ money-=400; addP(squad, "ESTRELLA", "DEL", 400, Math.random()*canvas.height, "#0ff", 90); updateUI(); } }
+    function sellPlayer(i) { money+=200; squad.splice(i,1); updateUI(); }
+
+    function startMatch() {
+        isMatch = true; timeLeft = 120; score = [0,0];
+        document.getElementById('menu-layer').style.display = "none";
+        document.getElementById('match-ui').style.display = "flex";
+        document.getElementById('tactic-bar').style.display = "flex";
+        initRivals(); resetBall();
+    }
+
+    function initRivals() {
+        rivals = []; let diff = season * 8;
+        addP(rivals, "R-DEL", "DEL", canvas.width-450, canvas.height/2, "red", 60+diff);
+        addP(rivals, "R-MED", "MED", canvas.width-300, canvas.height/2, "red", 60+diff);
+        addP(rivals, "R-DEF", "DEF", canvas.width-150, canvas.height/2, "red", 60+diff);
+        addP(rivals, "R-POR", "POR", canvas.width-60, canvas.height/2, "#400", 65+diff);
+    }
+
+    function resetBall() { ball = {x: canvas.width/2, y: canvas.height/2, vx: 0, vy: 0}; }
+
+    function setTactic(r) { 
+        currentTactic = r; 
+        selectedPlayer = squad.find(p=>p.role===r); 
+        document.querySelectorAll('.t-btn').forEach(b => b.style.borderColor = "var(--neon)");
+        document.getElementById('btn-'+r).style.borderColor = "white";
+    }
+
+    // CONTROLES HÍBRIDOS (PC + MÓVIL)
+    window.addEventListener('keydown', (e) => {
+        if(e.key === "1") setTactic('DEL');
+        if(e.key === "2") setTactic('MED');
+        if(e.key === "3") setTactic('DEF');
+    });
+
+    const handleInput = (e) => {
+        if(!isMatch || !selectedPlayer) return;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        selectedPlayer.targetX = clientX;
+        selectedPlayer.targetY = clientY;
+    };
+    canvas.addEventListener('mousemove', handleInput);
+    canvas.addEventListener('touchmove', handleInput);
+
+    function update() {
+        if(!isMatch) return;
+        timeLeft -= 1/60; if(timeLeft <= 0) endMatch();
+        let m=Math.floor(timeLeft/60), s=Math.floor(timeLeft%60);
+        document.getElementById('timer').innerText = `${m}:${s<10?'0'+s:s}`;
+
+        [...squad, ...rivals].forEach(p => {
+            let isRival = rivals.includes(p);
+            if(p === selectedPlayer) { p.x += (p.targetX - p.x) * 0.15; p.y += (p.targetY - p.y) * 0.15; }
+            else {
+                let r = (p.role === currentTactic) ? 1000 : 250;
+                if(Math.hypot(p.homeX - ball.x, p.homeY - ball.y) < r) { p.x += (ball.x - p.x) * (p.ovr/3800); p.y += (ball.y - p.y) * (p.ovr/3800); }
+                else { p.x += (p.homeX - p.x) * 0.03; p.y += (p.homeY - p.y) * 0.03; }
+            }
+            if(Math.hypot(p.x - ball.x, p.y - ball.y) < 22 && Date.now() - p.lastHit > 200) {
+                let angle = Math.atan2(ball.y - p.y, ball.x - p.x);
+                ball.vx = Math.cos(angle) * (p.ovr/7.5); ball.vy = Math.sin(angle) * (p.ovr/7.5);
+                ball.x += ball.vx * 1.5; p.lastHit = Date.now();
+            }
+        });
+
+        ball.x += ball.vx; ball.y += ball.vy; ball.vx *= 0.97; ball.vy *= 0.97;
+        if(ball.y > canvas.height/2-65 && ball.y < canvas.height/2+65) {
+            if(ball.x > canvas.width-25) { score[0]++; resetBall(); }
+            if(ball.x < 25) { score[1]++; resetBall(); }
+        }
+        if(ball.y < 70 || ball.y > canvas.height-70) ball.vy *= -1;
+        if(ball.x < 0 || ball.x > canvas.width) ball.vx *= -1;
+        document.getElementById('score').innerText = `${score[0]} - ${score[1]}`;
+    }
+
+    function endMatch() {
+        isMatch = false;
+        if(score[0] > score[1]) { money += 500; wins++; } 
+        else if(score[0] === score[1]) { money += 150; } 
+        else { money += 50; }
+        matchCount++;
+        if(matchCount > 10) { if(wins >= 6) { alert("¡CAMPEÓN!"); season++; } matchCount = 1; wins = 0; }
+        document.getElementById('menu-layer').style.display = "flex";
+        document.getElementById('match-ui').style.display = "none";
+        document.getElementById('tactic-bar').style.display = "none";
+        updateUI();
+    }
+
+    function draw() {
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle = "#222"; ctx.fillRect(0,0,canvas.width,70); ctx.fillRect(0,canvas.height-70,canvas.width,70);
+        ctx.fillStyle = "#2e7d32"; ctx.fillRect(0,70,canvas.width,canvas.height-140);
+        
+        ctx.strokeStyle = "white"; ctx.lineWidth = 5;
+        ctx.strokeRect(-5, canvas.height/2-65, 30, 130); 
+        ctx.strokeRect(canvas.width-25, canvas.height/2-65, 30, 130);
+
+        if(isMatch) {
+            [...squad, ...rivals].forEach(p => {
+                ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 16, 0, Math.PI*2); ctx.fill();
+                if(p === selectedPlayer) { ctx.strokeStyle = "white"; ctx.lineWidth = 3; ctx.stroke(); }
+                ctx.fillStyle = "white"; ctx.font="bold 10px Arial"; ctx.fillText(p.name, p.x-15, p.y-22);
+            });
+            ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ball.x, ball.y, 8, 0, Math.PI*2); ctx.fill();
+        }
+        update(); requestAnimationFrame(draw);
+    }
+    initBase(); draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DOG CHAMPIONS - CHAOS EDITION</title>
+    <style>
+        :root { --gold: #ffd700; --red: #ff3333; --blue: #3399ff; --bg: #0a0a0a; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; }
+        
+        #ui-top { position: fixed; top: 0; width: 100%; padding: 15px; background: #000; display: flex; justify-content: space-around; border-bottom: 2px solid var(--red); z-index: 100; box-sizing: border-box; }
+        .stat span { display: block; font-size: 14px; color: var(--gold); text-align: center; }
+
+        /* PANTALLA DE ACCION */
+        #action-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.95); z-index: 200; display: none; 
+            flex-direction: column; justify-content: center; align-items: center; 
+        }
+        #target { font-size: 90px; position: absolute; cursor: pointer; display: none; z-index: 201; user-select: none; transition: transform 0.1s; }
+        #timer-bar { position: absolute; top: 80px; width: 80%; height: 15px; background: #222; border: 2px solid white; border-radius: 10px; overflow: hidden; }
+        #timer-progress { height: 100%; background: var(--gold); width: 100%; }
+
+        #game-view { padding-top: 100px; display: flex; flex-direction: column; align-items: center; height: 100vh; }
+        .arena { display: flex; justify-content: space-around; width: 100%; align-items: center; height: 120px; margin: 10px 0; }
+        .hp-box { width: 80px; height: 10px; background: #333; border: 1px solid white; margin-top: 5px; }
+        .hp-val { height: 100%; background: var(--red); width: 100%; transition: width 0.3s; }
+
+        #market { width: 95%; background: #111; border-radius: 15px; padding: 10px; border: 1px solid #333; flex-grow: 1; overflow-y: auto; margin-bottom: 20px; }
+        .race-card { background: #222; margin-bottom: 8px; padding: 12px; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid var(--blue); }
+
+        .controls { width: 90%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        button { padding: 15px; border: none; border-radius: 10px; font-weight: bold; color: white; cursor: pointer; transition: 0.2s; }
+        button:active { transform: scale(0.95); }
+        .btn-fight { background: var(--gold); color: black; grid-column: span 2; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+
+<div id="ui-top">
+    <div class="stat">CASH <span id="m-money">$500</span></div>
+    <div class="stat">RAZA <span id="m-race">Callejero</span></div>
+    <div class="stat">HP <span id="m-hp">100/100</span></div>
+</div>
+
+<div id="action-overlay">
+    <h2 id="action-title" style="color:white; margin-top:-150px; text-shadow: 2px 2px var(--red);">¡DALE!</h2>
+    <div id="timer-bar"><div id="timer-progress"></div></div>
+    <div id="target">🐺</div>
+    <button id="btn-dodge" style="display:none; background:var(--blue); padding:35px; font-size:20px; border-radius:20px; box-shadow: 0 0 20px var(--blue);">¡ESQUIVAR!</button>
+</div>
+
+<div id="game-view">
+    <div id="log" style="color:var(--gold); font-size: 14px; text-align: center; height: 40px; padding: 0 15px;">Busca un rival y machácalo.</div>
+    
+    <div class="arena">
+        <div style="text-align:center"><div style="font-size:55px">🐕</div><div class="hp-box"><div id="p-hp" class="hp-val"></div></div></div>
+        <div style="font-size:30px; color:var(--red); font-style: italic;">VS</div>
+        <div style="text-align:center"><div id="e-sprite" style="font-size:55px; opacity:0">🐺</div><div class="hp-box"><div id="e-hp" class="hp-val" style="width:0"></div></div></div>
+    </div>
+
+    <div class="controls">
+        <button id="main-btn" class="btn-fight" onclick="findRival()">🏟️ BUSCAR PELEA</button>
+        <button id="atk-1" style="display:none; background:#c0392b" onclick="handleTurn(1)">MORDIDA</button>
+        <button id="atk-2" style="display:none; background:#8e44ad" onclick="handleTurn(1.7)">CRÍTICO</button>
+    </div>
+
+    <div id="market">
+        <div id="list"></div>
+    </div>
+</div>
+
+<script>
+    let money = 500, myDog = { name: "Callejero", str: 30, hp: 120, mHp: 120 }, enemy = null, isFighting = false, inTurn = false;
+    let globalTimer = null, globalMove = null;
+
+    const names = ["Pastor", "Rottweiler", "Cane Corso", "Malinois", "Doberman", "Pitbull"];
+    const races = [];
+    for(let i=0; i<200; i++) races.push({name: names[i%6]+" Alpha #"+(i+1), p: (i+1)*550, s: 40+(i*22), h: 200+(i*110)});
+
+    function init() {
+        const box = document.getElementById('list');
+        races.forEach((r, idx) => {
+            let d = document.createElement('div');
+            d.className = 'race-card';
+            d.innerHTML = `<div><b>${r.name}</b><br>$${r.p} | STR: ${r.s}</div><button onclick="buy(${idx})" style="background:var(--gold); color:black; padding:8px">COMPRAR</button>`;
+            box.appendChild(d);
+        });
+        updateUI();
+    }
+
+    function buy(i) {
+        if(isFighting) return;
+        if(money >= races[i].p) {
+            money -= races[i].p;
+            myDog = { name: races[i].name, str: races[i].s, hp: races[i].h, mHp: races[i].h };
+            updateUI();
+        }
+    }
+
+    function findRival() {
+        isFighting = true;
+        enemy = { str: myDog.str * 0.95, hp: myDog.mHp * 0.85, mHp: myDog.mHp * 0.85 };
+        document.getElementById('e-sprite').style.opacity = 1;
+        document.getElementById('main-btn').style.display = "none";
+        document.getElementById('atk-1').style.display = "block";
+        document.getElementById('atk-2').style.display = "block";
+        updateUI();
+    }
+
+    async function handleTurn(mult) {
+        if(inTurn || !isFighting) return;
+        inTurn = true;
+        
+        // JUGADOR ATACA
+        let winAtk = await startMiniGame('attack');
+        if(winAtk) {
+            let d = myDog.str * mult;
+            enemy.hp -= d;
+            document.getElementById('log').innerText = "¡BOOM! Golpe directo: -"+Math.floor(d);
+        } else document.getElementById('log').innerText = "¡EL RIVAL ES MUY RÁPIDO! Fallaste.";
+        
+        updateUI();
+        if(enemy.hp <= 0) return win();
+
+        await new Promise(r => setTimeout(r, 800));
+
+        // ENEMIGO ATACA
+        let winDef = await startMiniGame('defend');
+        if(!winDef) {
+            myDog.hp -= enemy.str;
+            document.getElementById('log').innerText = "¡TE CAZARON! Daño recibido: -"+Math.floor(enemy.str);
+        } else document.getElementById('log').innerText = "¡ESQUIVA NIVEL DIOS!";
+
+        updateUI();
+        if(myDog.hp <= 0) return die();
+        
+        inTurn = false;
+    }
+
+    function startMiniGame(type) {
+        return new Promise(resolve => {
+            clearInterval(globalTimer);
+            clearInterval(globalMove);
+
+            const overlay = document.getElementById('action-overlay');
+            const target = document.getElementById('target');
+            const dBtn = document.getElementById('btn-dodge');
+            const prog = document.getElementById('timer-progress');
+            
+            overlay.style.display = "flex";
+            let timeLeft = 2000, solved = false;
+
+            const randomizePos = () => {
+                target.style.left = (15 + Math.random()*65) + "%";
+                target.style.top = (25 + Math.random()*45) + "%";
+                target.style.transform = `scale(${0.8 + Math.random()*0.5})`;
+            };
+
+            if(type === 'attack') {
+                target.style.display = "block"; dBtn.style.display = "none";
+                // APARECE EN LUGAR RANDOM DESDE EL SEGUNDO 0
+                randomizePos();
+                
+                target.onclick = () => { if(!solved){ solved=true; cleanup(); resolve(true); }};
+                globalMove = setInterval(randomizePos, 550); // Se mueve rápido
+            } else {
+                target.style.display = "none"; dBtn.style.display = "block";
+                dBtn.onclick = () => { if(!solved){ solved=true; cleanup(); resolve(true); }};
+            }
+
+            globalTimer = setInterval(() => {
+                timeLeft -= 50;
+                prog.style.width = (timeLeft / 20) + "%";
+                if(timeLeft <= 0 && !solved) { solved=true; cleanup(); resolve(false); }
+            }, 50);
+
+            function cleanup() {
+                clearInterval(globalTimer);
+                clearInterval(globalMove);
+                overlay.style.display = "none";
+            }
+        });
+    }
+
+    function win() {
+        let p = 600 + (myDog.str * 0.5);
+        money += p; myDog.hp = myDog.mHp;
+        isFighting = false; inTurn = false;
+        document.getElementById('log').innerText = "¡VICTORIA TOTAL! Ganaste $" + Math.floor(p);
+        document.getElementById('main-btn').style.display = "block";
+        document.getElementById('atk-1').style.display = "none";
+        document.getElementById('atk-2').style.display = "none";
+        document.getElementById('e-sprite').style.opacity = 0;
+        updateUI();
+    }
+
+    function die() { alert("Tu perro ha caído... vuelve a intentarlo."); location.reload(); }
+
+    function updateUI() {
+        document.getElementById('m-money').innerText = "$" + Math.floor(money);
+        document.getElementById('m-race').innerText = myDog.name;
+        document.getElementById('m-hp').innerText = Math.floor(myDog.hp)+"/"+myDog.mHp;
+        document.getElementById('p-hp').style.width = (myDog.hp/myDog.mHp*100) + "%";
+        if(enemy) document.getElementById('e-hp').style.width = (enemy.hp/enemy.mHp*100) + "%";
+    }
+
+    init();
+</script>
+</body>
+</html>

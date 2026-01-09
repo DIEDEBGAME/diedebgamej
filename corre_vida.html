@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>CORRE POR TU VIDA GO - DIEDEB GAMES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; cursor: crosshair; touch-action: none; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: #ff0000; z-index: 10; pointer-events: none; }
+        #timer-msg { font-size: 100px; color: #ccff00; margin-top: 10%; text-shadow: 0 0 30px #000; font-weight: 900; }
+        #level-info { position: absolute; bottom: 20px; left: 20px; color: #ccff00; font-size: 24px; text-shadow: 2px 2px #000; }
+        #click-to-play { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,1); color: #ccff00; display: flex; align-items: center; justify-content: center; z-index: 500; font-size: 28px; text-align: center; border: 5px solid #ff0000; box-sizing: border-box; cursor: pointer; }
+
+        /* JOYSTICK */
+        #joystick-zone { 
+            position: absolute; bottom: 50px; left: 50px; 
+            width: 120px; height: 120px; 
+            background: rgba(255,0,0,0.2); border-radius: 50%; 
+            border: 2px solid #ff0000; z-index: 1000; display: none;
+        }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #ff0000; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+        
+        /* Solo mostrar joystick si detecta touch */
+        @media (pointer: coarse) { #joystick-zone { display: block; } }
+    </style>
+</head>
+<body>
+
+    <div id="click-to-play">DIEDEB GAMES PRESENTA... <br><br> [ TOCA PARA EMPEZAR ] </div>
+
+    <div id="ui">
+        <div id="timer-msg">3</div>
+        <div id="level-info">NIVEL: <span id="lvl-num">1</span></div>
+    </div>
+
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x020000);
+        scene.fog = new THREE.Fog(0x020000, 1, 120);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1500);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const light = new THREE.PointLight(0xffffff, 2.5, 100);
+        camera.add(light);
+        scene.add(camera);
+
+        const roomGroup = new THREE.Group();
+        scene.add(roomGroup);
+
+        // MONSTRUO
+        const monster = new THREE.Group();
+        const mBody = new THREE.Mesh(new THREE.BoxGeometry(5, 5, 5), new THREE.MeshPhongMaterial({color: 0x110000}));
+        monster.add(mBody);
+        const eyeMat = new THREE.MeshBasicMaterial({color: 0xff0000});
+        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.6), eyeMat); eyeL.position.set(-1.2, 1.5, -2.5); monster.add(eyeL);
+        const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.6), eyeMat); eyeR.position.set(1.2, 1.5, -2.5); monster.add(eyeR);
+        
+        for(let i=0; i<8; i++) {
+            const t = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.6, 18), new THREE.MeshPhongMaterial({color: 0x000000}));
+            t.position.set(Math.cos(i)*4, -6, Math.sin(i)*4);
+            monster.add(t);
+        }
+        scene.add(monster);
+
+        function crearHabitacion(n) {
+            roomGroup.clear();
+            const colorNivel = new THREE.Color(`hsl(${n * 137}, 70%, 15%)`);
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 1200), new THREE.MeshPhongMaterial({color: 0x050505}));
+            floor.rotation.x = -Math.PI/2; floor.position.z = -550; roomGroup.add(floor);
+            const wallGeo = new THREE.BoxGeometry(1, 120, 1200);
+            const wallMat = new THREE.MeshPhongMaterial({color: colorNivel});
+            const lW = new THREE.Mesh(wallGeo, wallMat); lW.position.set(-30, 20, -550); roomGroup.add(lW);
+            const rW = new THREE.Mesh(wallGeo, wallMat); rW.position.set(30, 20, -550); roomGroup.add(rW);
+
+            for(let i=0; i<3; i++) {
+                const z = -250 - (i * 250);
+                const trap = new THREE.Mesh(new THREE.BoxGeometry(25, 6, 6), new THREE.MeshPhongMaterial({color: 0xff0000, emissive: 0x330000}));
+                trap.position.set(Math.random()*40-20, 3, z);
+                trap.userData = { type: 'trap' }; roomGroup.add(trap);
+            }
+            const goal = new THREE.Mesh(new THREE.BoxGeometry(40, 100, 2), new THREE.MeshBasicMaterial({color: 0xccff00, wireframe: true}));
+            goal.position.z = -1100; goal.userData = { type: 'goal' }; roomGroup.add(goal);
+        }
+
+        let rotY = 0, rotX = 0, wait = 3, active = false, lvl = 1;
+        let keys = {};
+        let joyX = 0, joyY = 0;
+        let lastTouchX = 0, lastTouchY = 0, isTouchingCamera = false;
+
+        // EVENTOS MÓVIL (CÁMARA)
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest('#joystick-zone')) {
+                isTouchingCamera = true;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            }
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (isTouchingCamera) {
+                const t = e.touches[0];
+                rotY -= (t.clientX - lastTouchX) * 0.007;
+                rotX -= (t.clientY - lastTouchY) * 0.007;
+                rotX = Math.max(-1.5, Math.min(1.5, rotX));
+                lastTouchX = t.clientX; lastTouchY = t.clientY;
+            }
+        }, { passive: false });
+        document.addEventListener('touchend', () => isTouchingCamera = false);
+
+        // EVENTO PC (CÁMARA)
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === document.body) {
+                rotY -= e.movementX * 0.003;
+                rotX -= e.movementY * 0.003;
+                rotX = Math.max(-1.5, Math.min(1.5, rotX));
+            }
+        });
+
+        // JOYSTICK
+        const zone = document.getElementById('joystick-zone');
+        const stick = document.getElementById('joystick-stick');
+        zone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const t = e.touches[0];
+            const rect = zone.getBoundingClientRect();
+            const dx = t.clientX - (rect.left + rect.width/2);
+            const dy = t.clientY - (rect.top + rect.height/2);
+            const dist = Math.min(50, Math.sqrt(dx*dx + dy*dy));
+            const angle = Math.atan2(dy, dx);
+            joyX = Math.cos(angle) * (dist / 50);
+            joyY = Math.sin(angle) * (dist / 50);
+            stick.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
+        });
+        zone.addEventListener('touchend', () => { joyX = 0; joyY = 0; stick.style.transform = 'translate(-50%, -50%)'; });
+
+        document.getElementById('click-to-play').onclick = () => {
+            if(window.innerWidth > 1024) document.body.requestPointerLock();
+            document.getElementById('click-to-play').style.display = 'none';
+            startTimer(3);
+        };
+
+        window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
+        window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+
+        function startTimer(seconds) {
+            active = false; wait = seconds;
+            const msg = document.getElementById('timer-msg');
+            msg.style.display = 'block'; msg.innerText = wait;
+            const itv = setInterval(() => {
+                wait--; msg.innerText = wait;
+                if(wait <= 0) { active = true; msg.style.display = 'none'; clearInterval(itv); }
+            }, 1000);
+        }
+
+        crearHabitacion(lvl);
+        camera.position.set(0, 6, 10);
+        monster.position.set(0, 8, -25);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = rotY; camera.rotation.x = rotX;
+
+            const speed = 1.8;
+            if (keys['w']) camera.translateZ(-speed);
+            if (keys['s']) camera.translateZ(speed);
+            if (keys['a']) camera.translateX(-speed);
+            if (keys['d']) camera.translateX(speed);
+            camera.translateZ(joyY * speed);
+            camera.translateX(joyX * speed);
+
+            camera.position.y = 6;
+            camera.position.x = Math.max(-28, Math.min(28, camera.position.x));
+
+            if (active) {
+                const mDir = new THREE.Vector3().subVectors(camera.position, monster.position).normalize();
+                monster.position.add(mDir.multiplyScalar(1.4 + (lvl * 0.1)));
+                monster.lookAt(camera.position);
+                if (monster.position.distanceTo(camera.position) < 7) {
+                    alert("¡TE ATRAPÓ EL DEMONIO!");
+                    location.reload();
+                }
+            }
+            
+            roomGroup.children.forEach(obj => {
+                if (obj.userData.type === 'trap' && camera.position.distanceTo(obj.position) < 8) { location.reload(); }
+                if (obj.userData.type === 'goal' && camera.position.distanceTo(obj.position) < 15) {
+                    lvl++; document.getElementById('lvl-num').innerText = lvl;
+                    camera.position.set(0, 6, 10); monster.position.set(0, 8, -25);
+                    crearHabitacion(lvl); startTimer(3);
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

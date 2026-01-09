@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIEDEB TECH MOBILE</title>
+    <style>
+        :root { --neon: #00ffcc; --bg: #0a0a0c; --card: #16161a; }
+        body { margin: 0; background: var(--bg); font-family: sans-serif; color: white; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* HEADER ADAPTADO */
+        #header { background: #000; padding: 10px 15px; border-bottom: 2px solid var(--neon); display: flex; justify-content: space-between; align-items: center; z-index: 10; }
+        #money { font-size: 20px; color: var(--neon); font-weight: bold; }
+
+        /* CONTENEDOR PRINCIPAL SCROLLEABLE */
+        #main { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 20px; }
+        
+        .section-title { color: var(--neon); border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 10px; font-size: 18px; }
+        .card { background: #1c1c1f; padding: 15px; border-radius: 10px; border: 1px solid #333; margin-bottom: 10px; }
+        
+        /* BOTONES GRANDES PARA TOUCH */
+        .btn-action { background: var(--neon); color: #000; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; margin-top: 5px; }
+        .btn-prod { background: #222; color: white; border: 1px solid #444; padding: 12px; border-radius: 8px; width: 100%; margin-bottom: 8px; text-align: left; }
+
+        /* MODAL PANTALLA COMPLETA EN MÓVIL */
+        #config-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0c0c0e; z-index: 100; display: none; overflow-y: auto; padding: 20px; box-sizing: border-box;
+        }
+        select, input { width: 100%; padding: 12px; background: #1a1a1c; color: white; border: 1px solid #444; border-radius: 6px; font-size: 16px; margin: 8px 0; }
+
+        /* BARRA DE PROGRESO */
+        #progress-box { display: none; margin: 15px 0; }
+        #bar-back { width: 100%; background: #222; height: 20px; border-radius: 10px; overflow: hidden; }
+        #bar-fill { width: 0%; height: 100%; background: var(--neon); }
+        
+        .review-box { background: rgba(0,255,204,0.1); border: 1px solid var(--neon); padding: 15px; border-radius: 10px; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <h2 style="margin:0; font-size: 18px;">DIEDEB <span style="color:var(--neon)">TECH</span></h2>
+    <div id="money">$20,000</div>
+</div>
+
+<div id="main">
+    <div>
+        <div class="section-title">EQUIPO (<span id="speed-view">0</span> Vel)</div>
+        <div id="staff-list"></div>
+    </div>
+
+    <div>
+        <div id="progress-box">
+            <h4 id="work-msg" style="margin:5px 0;">FABRICANDO...</h4>
+            <div id="bar-back"><div id="bar-fill"></div></div>
+        </div>
+        <div id="review-display" class="review-box">
+            <div id="rev-stars">⭐⭐⭐⭐⭐</div>
+            <div id="rev-profit" style="font-size: 20px; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <div>
+        <div class="section-title">NUEVO PROYECTO</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <button class="btn-prod" onclick="openC('Celular')">📱 Celular</button>
+            <button class="btn-prod" onclick="openC('Horno')">🍞 Horno</button>
+            <button class="btn-prod" onclick="openC('Consola')">🎮 Consola</button>
+            <button class="btn-prod" onclick="openC('PC')">💻 PC</button>
+        </div>
+    </div>
+
+    <div>
+        <div class="section-title">MIS MODELOS</div>
+        <div id="saved-models"></div>
+    </div>
+</div>
+
+<div id="config-modal">
+    <h2 style="color:var(--neon); margin-top: 0;">INGENIERÍA</h2>
+    <div id="dynamic-selectors"></div>
+    
+    <div style="background: #1a1a1c; padding: 15px; border-radius: 10px; margin: 20px 0;">
+        <label>Nombre:</label>
+        <input type="text" id="m-name" placeholder="Ej: Diedeb Max">
+        <label>Cantidad:</label>
+        <input type="number" id="m-units" value="50">
+        <div style="margin-top:10px;">Total: <b id="total-view" style="color:var(--neon)">$0</b></div>
+    </div>
+    
+    <button class="btn-action" onclick="confirmBuild()">LANZAR LOTE</button>
+    <button class="btn-action" onclick="closeC()" style="background:#444; color:white; margin-bottom: 50px;">VOLVER</button>
+</div>
+
+<script>
+    // --- (Misma lógica de los 15 niveles y 11 componentes del código anterior) ---
+    let money = 20000;
+    let speed = 0;
+    let isWorking = false;
+    let savedModels = [];
+    let curType = "";
+
+    function getOpts(name, priceBase) {
+        let options = [];
+        for(let i=1; i<=15; i++) {
+            options.push({ n: `${name} Nv${i}`, p: priceBase * i * (1 + i * 0.1), q: i });
+        }
+        return options;
+    }
+
+    const techSpecs = {
+        'Celular': [{l:"CPU",id:"c1",b:100},{l:"RAM",id:"c2",b:50},{l:"Cam",id:"c3",b:80},{l:"Bat",id:"c4",b:30},{l:"Pant",id:"c5",b:60}],
+        'Horno': [{l:"Resis",id:"c1",b:120},{l:"Aisla",id:"c2",b:40},{l:"Timer",id:"c3",b:20},{l:"Cuerpo",id:"c4",b:80}],
+        'Consola': [{l:"GPU",id:"c1",b:200},{l:"SSD",id:"c2",b:100},{l:"Pads",id:"c3",b:50},{l:"Soft",id:"c4",b:80}],
+        'PC': [{l:"CPU",id:"c1",b:250},{l:"GPU",id:"c2",b:300},{l:"RAM",id:"c3",b:100},{l:"Fuente",id:"c4",b:80}]
+    };
+
+    function openC(type) {
+        if(speed <= 0) return alert("Contrata obreros!");
+        curType = type;
+        const grid = document.getElementById('dynamic-selectors');
+        grid.innerHTML = "";
+        techSpecs[type].forEach(s => {
+            let opts = getOpts(s.l, s.b);
+            let h = `<label>${s.l}:</label><select id="sel-${s.id}" onchange="recalc()">`;
+            opts.forEach(o => h += `<option value="${o.p}" data-q="${o.q}">${o.n} (+$${Math.floor(o.p)})</option>`);
+            grid.innerHTML += h + "</select>";
+        });
+        document.getElementById('config-modal').style.display = "block";
+        recalc();
+    }
+
+    function recalc() {
+        let uCost = 100;
+        techSpecs[curType].forEach(s => uCost += parseFloat(document.getElementById('sel-'+s.id).value));
+        let units = parseInt(document.getElementById('m-units').value) || 1;
+        document.getElementById('total-view').innerText = "$" + Math.floor(uCost * units).toLocaleString();
+    }
+
+    function confirmBuild() {
+        let uCost = 100; let qSum = 0;
+        techSpecs[curType].forEach(s => {
+            let el = document.getElementById('sel-'+s.id);
+            uCost += parseFloat(el.value);
+            qSum += parseInt(el.options[el.selectedIndex].getAttribute('data-q'));
+        });
+        let units = parseInt(document.getElementById('m-units').value);
+        let total = uCost * units;
+        if(money < total) return alert("Dinero insuficiente");
+
+        money -= total; updateUI();
+        let model = { name: document.getElementById('m-name').value || "Modelo X", uCost, units, q: qSum/techSpecs[curType].length, type: curType };
+        savedModels.push(model);
+        closeC(); renderM();
+        startProduction(total, model.q, units);
+    }
+
+    function startProduction(total, q, units) {
+        isWorking = true;
+        document.getElementById('progress-box').style.display = "block";
+        document.getElementById('review-display').style.display = "none";
+        let p = 0;
+        let bar = document.getElementById('bar-fill');
+        let interval = setInterval(() => {
+            p += (speed / (units * 0.15));
+            bar.style.width = Math.min(p, 100) + "%";
+            if(p >= 100) { clearInterval(interval); finish(total, q); }
+        }, 100);
+    }
+
+    function finish(total, q) {
+        isWorking = false;
+        document.getElementById('progress-box').style.display = "none";
+        let profit = total * (1.2 + (q * 0.2));
+        money += profit;
+        document.getElementById('rev-profit').innerText = "+$" + Math.floor(profit).toLocaleString();
+        document.getElementById('review-display').style.display = "block";
+        updateUI();
+    }
+
+    function hire(c, s) { if(money>=c){ money-=c; speed+=s; updateUI(); } }
+    function updateUI() { 
+        document.getElementById('money').innerText = "$" + Math.floor(money).toLocaleString(); 
+        document.getElementById('speed-view').innerText = speed;
+    }
+    function closeC() { document.getElementById('config-modal').style.display = "none"; }
+    function renderM() {
+        const d = document.getElementById('saved-models');
+        d.innerHTML = "";
+        savedModels.forEach((m, i) => {
+            d.innerHTML += `<div class="card"><b>${m.name}</b><br><button class="btn-action" onclick="startProduction(${m.uCost * m.units}, ${m.q}, ${m.units})">Lanzar Lote</button></div>`;
+        });
+    }
+
+    const staff = [{n:"Obrero",c:1000,s:1}, {n:"Ingeniero",c:5000,s:5}];
+    staff.forEach(s => {
+        document.getElementById('staff-list').innerHTML += `<div class="card" style="display:flex; justify-content:space-between; align-items:center;"><span>${s.n}</span><button onclick="hire(${s.c},${s.s})" style="padding:10px; background:var(--neon); border:none; border-radius:5px;">$${s.c}</button></div>`;
+    });
+    updateUI();
+</script>
+</body>
+</html>

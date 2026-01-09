@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>BARCO INFINITO UNIVERSAL - DIEDEB GAMES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        
+        #sea { position: absolute; bottom: 0; width: 100%; height: 150px; background: #0077BE; border-top: 5px solid #fff; }
+
+        #boat { 
+            position: absolute; bottom: 150px; left: 50px; 
+            width: 80px; height: 40px; background: #8B4513; 
+            border-radius: 0 0 20px 20px; z-index: 10;
+        }
+        #boat::after { 
+            content: ''; position: absolute; top: -50px; left: 30px; 
+            width: 0; height: 0; border-left: 20px solid transparent; 
+            border-right: 20px solid transparent; border-bottom: 50px solid white; 
+        }
+
+        .rock { position: absolute; bottom: 150px; width: 50px; height: 50px; background: #555; border-radius: 10px; }
+
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-size: 40px; text-shadow: 3px 3px 0 #000; z-index: 100; pointer-events: none; }
+        
+        /* BOTÓN DE SALTO MÓVIL */
+        #jump-btn {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 100px; height: 100px; background: rgba(255, 255, 255, 0.3);
+            border: 5px solid white; border-radius: 50%;
+            z-index: 1000; display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; font-size: 18px;
+        }
+
+        #game-over { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 40px; border: 10px solid #000; border-radius: 20px; text-align: center; z-index: 2000; color: black; }
+        button { padding: 15px 30px; font-size: 20px; cursor: pointer; background: #ccff00; border: none; font-weight: bold; }
+        .back-btn { position: absolute; top: 20px; left: 20px; color: #000; text-decoration: none; font-size: 14px; z-index: 1000; background: white; padding: 5px; border-radius: 5px;}
+
+        /* Ocultar botón de salto en PC si hay ratón */
+        @media (pointer: fine) { #jump-btn { display: none; } }
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-btn">⬅ SALIR</a>
+
+    <div id="ui">PUNTOS: <span id="score">0</span></div>
+    
+    <div id="jump-btn">SALTO</div>
+
+    <div id="boat"></div>
+    <div id="sea"></div>
+
+    <div id="game-over">
+        <h1>¡NAUFRAGASTE!</h1>
+        <p>Puntuación Final: <span id="final-score">0</span></p>
+        <button onclick="location.reload()">REINTENTAR</button>
+    </div>
+
+    <script>
+        const boat = document.getElementById('boat');
+        const scoreDisplay = document.getElementById('score');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const jumpBtn = document.getElementById('jump-btn');
+
+        // VARIABLES DE FÍSICA
+        let boatY = 150; 
+        let velocityY = 0;
+        let gravity = 0.6;
+        let jumpPower = -12;
+        let isGrounded = true;
+        
+        let score = 0;
+        let gameActive = true;
+        let speed = 6;
+
+        // FUNCIÓN DE SALTO
+        function doJump() {
+            if (isGrounded && gameActive) {
+                velocityY = jumpPower;
+                isGrounded = false;
+            }
+        }
+
+        // CONTROLES PC
+        document.addEventListener('keydown', (e) => { if(e.code === 'Space') doJump(); });
+        document.addEventListener('mousedown', (e) => { 
+            if(e.target.tagName !== 'BUTTON') doJump(); 
+        });
+
+        // CONTROLES MÓVIL
+        jumpBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            doJump();
+        });
+
+        // BUCLE PRINCIPAL (FÍSICA)
+        function update() {
+            if (!gameActive) return;
+
+            velocityY += gravity;
+            boatY -= velocityY;
+
+            if (boatY <= 150) {
+                boatY = 150;
+                velocityY = 0;
+                isGrounded = true;
+            }
+
+            boat.style.bottom = boatY + 'px';
+            requestAnimationFrame(update);
+        }
+
+        // OBSTÁCULOS
+        function createRock() {
+            if (!gameActive) return;
+
+            const rock = document.createElement('div');
+            rock.className = 'rock';
+            rock.style.left = window.innerWidth + 'px';
+            document.body.appendChild(rock);
+
+            let rockX = window.innerWidth;
+            
+            let moveInterval = setInterval(() => {
+                if (!gameActive) {
+                    clearInterval(moveInterval);
+                    rock.remove();
+                    return;
+                }
+
+                rockX -= speed;
+                rock.style.left = rockX + 'px';
+
+                let b = boat.getBoundingClientRect();
+                let r = rock.getBoundingClientRect();
+
+                if (b.right > r.left + 15 && b.left < r.right - 15 && b.bottom > r.top + 15) {
+                    endGame();
+                }
+
+                if (rockX < -60) {
+                    clearInterval(moveInterval);
+                    rock.remove();
+                    score++;
+                    scoreDisplay.innerText = score;
+                    speed += 0.2;
+                }
+            }, 10);
+
+            setTimeout(createRock, Math.random() * 1500 + 1000);
+        }
+
+        function endGame() {
+            gameActive = false;
+            finalScoreDisplay.innerText = score;
+            gameOverScreen.style.display = 'block';
+        }
+
+        update();
+        createRock();
+    </script>
+</body>
+</html>

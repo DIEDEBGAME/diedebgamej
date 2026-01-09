@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DIEDEB FOOTBALL | SPLIT-SCREEN PRO</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; }
+        #menu { position: absolute; inset: 0; background: rgba(0,0,0,0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; color: white; }
+        .btn { padding: 15px 30px; margin: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 18px; transition: 0.2s; }
+        #hud { position: absolute; top: 10px; width: 100%; text-align: center; color: white; font-size: 30px; z-index: 100; pointer-events: none; text-shadow: 2px 2px #000; }
+        
+        /* GUI DE CONTROLES POR JUGADOR */
+        .controls-gui { position: absolute; bottom: 20px; color: white; background: rgba(0,0,0,0.7); padding: 10px; border-radius: 5px; font-size: 12px; border: 1px solid #ff4d4d; pointer-events: none; }
+        #gui-p1 { left: 20px; }
+        #gui-p2 { right: 20px; }
+        .key { color: #ff4d4d; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="hud">P1: <span id="s1">0</span> | P2: <span id="s2">0</span></div>
+
+<div id="menu">
+    <h1 style="color:#ff4d4d; font-size: 50px;">DIEDEB 3D</h1>
+    <button class="btn" style="background:#f1c40f;" onclick="startGame('local')">🎮 PANTALLA DIVIDIDA (LOCAL)</button>
+    <div style="background:#222; padding:20px; border-radius:10px; margin-top:10px; text-align:center;">
+        <p>MULTIPLAYER ONLINE</p>
+        <div id="my-id" style="color:#2ecc71; margin-bottom:10px">Cargando ID...</div>
+        <input type="text" id="join-id" placeholder="ID del Amigo" style="padding:10px; border-radius:5px; border:none;">
+        <button class="btn" style="background:#3498db; color:white; font-size:14px" onclick="connectOnline()">CONECTAR</button>
+    </div>
+</div>
+
+<div id="gui-p1" class="controls-gui"><b>JUGADOR 1</b><br>Mover: <span class="key">WASD</span><br>Disparar: <span class="key">ESPACIO</span></div>
+<div id="gui-p2" class="controls-gui"><b>JUGADOR 2</b><br>Mover: <span class="key">FLECHAS</span><br>Disparar: <span class="key">ENTER</span></div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+
+let scene, renderer, ball, p1, p2, cam1, cam2;
+let keys = {}, scores = {p1:0, p2:0}, gameMode = 'local';
+let holder = null, ballPhys = { vx: 0, vz: 0 };
+
+// --- ONLINE LOGIC (PEERJS) ---
+const myId = 'DEB' + Math.floor(1000 + Math.random() * 9000);
+const peer = new Peer(myId);
+let conn, myRole = 'p1';
+
+peer.on('open', id => document.getElementById('my-id').innerText = "TU ID: " + id);
+peer.on('connection', c => { conn = c; gameMode = 'online'; myRole = 'p1'; startGame('online'); setupNet(); });
+
+window.connectOnline = () => {
+    const tid = document.getElementById('join-id').value;
+    if(!tid) return;
+    conn = peer.connect(tid); gameMode = 'online'; myRole = 'p2'; startGame('online'); setupNet();
+}
+
+function setupNet() {
+    conn.on('data', d => {
+        if(d.type === 'sync') {
+            if(myRole === 'p1') { p2.position.set(d.x,0,d.z); p2.rotation.y = d.ry; }
+            else { p1.position.set(d.x,0,d.z); p1.rotation.y = d.ry; ball.position.set(d.bx,0.6,d.bz); }
+        }
+        if(d.type === 'goal') { scores = d.scores; resetPos(); }
+    });
+}
+
+// --- JUEGO ---
+window.startGame = (m) => {
+    gameMode = m;
+    document.getElementById('menu').style.display = 'none';
+    if(gameMode === 'online') document.getElementById('gui-p2').style.display = 'none';
+    init();
+}
+
+function init() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x111111);
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Cámaras
+    const aspect = (gameMode === 'local' ? (window.innerWidth/2) : window.innerWidth) / window.innerHeight;
+    cam1 = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+    cam2 = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const dl = new THREE.DirectionalLight(0xffffff, 1); dl.position.set(0,20,10); scene.add(dl);
+
+    // Campo y Porterías
+    const field = new THREE.Mesh(new THREE.PlaneGeometry(60, 100), new THREE.MeshPhongMaterial({color: 0x2d5a27}));
+    field.rotation.x = -Math.PI/2; scene.add(field);
+
+    const createGoal = (z) => {
+        const g = new THREE.Group();
+        const m = new THREE.MeshPhongMaterial({color: 0xffffff});
+        const p1 = new THREE.Mesh(new THREE.BoxGeometry(0.5,6,0.5), m); p1.position.set(-7,3,0);
+        const p2 = new THREE.Mesh(new THREE.BoxGeometry(0.5,6,0.5), m); p2.position.set(7,3,0);
+        const t = new THREE.Mesh(new THREE.BoxGeometry(14.5,0.5,0.5), m); t.position.set(0,6,0);
+        g.add(p1,p2,t); g.position.z = z; scene.add(g);
+    };
+    createGoal(-50); createGoal(50);
+
+    // Personajes (Cabeza, Manos, Piernas)
+    p1 = createChar(0xffffff, 40); p1.add(cam1); cam1.position.y = 2;
+    p2 = createChar(0xff4d4d, -40); p2.rotation.y = Math.PI;
+    if(gameMode === 'local') { p2.add(cam2); cam2.position.y = 2; }
+
+    ball = new THREE.Mesh(new THREE.SphereGeometry(0.6, 16, 16), new THREE.MeshPhongMaterial({color: 0xffffff}));
+    ball.position.set(0,0.6,0); scene.add(ball);
+
+    window.onkeydown = e => keys[e.code] = true;
+    window.onkeyup = e => keys[e.code] = false;
+    loop();
+}
+
+function createChar(color, z) {
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 0.6), new THREE.MeshPhongMaterial({color}));
+    body.position.y = 0.9;
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.7, 0.7), new THREE.MeshPhongMaterial({color: 0xffdbac}));
+    head.position.y = 2.2;
+    g.add(body, head); g.position.z = z; scene.add(g); return g;
+}
+
+function loop() {
+    requestAnimationFrame(loop);
+    
+    // Movimiento
+    if(myRole === 'p1' || gameMode === 'local') {
+        if(keys['KeyW']) p1.translateZ(-0.25); if(keys['KeyS']) p1.translateZ(0.25);
+        if(keys['KeyA']) p1.rotation.y += 0.05; if(keys['KeyD']) p1.rotation.y -= 0.05;
+        if(keys['Space'] && holder === p1) shoot(p1);
+    }
+    if((myRole === 'p2' || gameMode === 'local')) {
+        if(keys['ArrowUp']) p2.translateZ(-0.25); if(keys['ArrowDown']) p2.translateZ(0.25);
+        if(keys['ArrowLeft']) p2.rotation.y += 0.05; if(keys['ArrowRight']) p2.rotation.y -= 0.05;
+        if(keys['Enter'] && holder === p2) shoot(p2);
+    }
+
+    // Lógica Balón y Robo
+    if(gameMode === 'local' || myRole === 'p1') {
+        if(p1.position.distanceTo(p2.position) < 2.5) {
+            if(holder === p1) holder = p2; else if(holder === p2) holder = p1;
+        }
+
+        if(!holder) {
+            if(p1.position.distanceTo(ball.position) < 2.2) holder = p1;
+            else if(p2.position.distanceTo(ball.position) < 2.2) holder = p2;
+            ball.position.x += ballPhys.vx; ball.position.z += ballPhys.vz;
+            ballPhys.vx *= 0.97; ballPhys.vz *= 0.97;
+            checkGoal();
+        } else {
+            ball.position.copy(holder.position); ball.rotation.copy(holder.rotation);
+            ball.translateZ(-2); ball.position.y = 0.6;
+        }
+    }
+
+    // Sincronización Online
+    if(gameMode === 'online' && conn && conn.open) {
+        let me = (myRole === 'p1' ? p1 : p2);
+        conn.send({type:'sync', x:me.position.x, z:me.position.z, ry:me.rotation.y, bx:ball.position.x, bz:ball.position.z});
+    }
+
+    // Render (Split Screen)
+    if(gameMode === 'local') {
+        renderer.setScissorTest(true);
+        renderer.setViewport(0, 0, window.innerWidth/2, window.innerHeight);
+        renderer.setScissor(0, 0, window.innerWidth/2, window.innerHeight);
+        renderer.render(scene, cam1);
+        renderer.setViewport(window.innerWidth/2, 0, window.innerWidth/2, window.innerHeight);
+        renderer.setScissor(window.innerWidth/2, 0, window.innerWidth/2, window.innerHeight);
+        renderer.render(scene, cam2);
+    } else {
+        renderer.render(scene, (myRole === 'p1' ? cam1 : cam1)); // Online usa su propia cam
+    }
+}
+
+function shoot(p) {
+    const dir = new THREE.Vector3(0,0,-1).applyQuaternion(p.quaternion);
+    ballPhys.vx = dir.x * 2.5; ballPhys.vz = dir.z * 2.5;
+    holder = null;
+}
+
+function checkGoal() {
+    if(Math.abs(ball.position.z) > 50 && Math.abs(ball.position.x) < 7) {
+        if(ball.position.z < 0) scores.p1++; else scores.p2++;
+        document.getElementById('s1').innerText = scores.p1;
+        document.getElementById('s2').innerText = scores.p2;
+        if(gameMode === 'online') conn.send({type:'goal', scores});
+        resetPos();
+    } else if(Math.abs(ball.position.z) > 50) { ballPhys.vz *= -1; }
+}
+
+function resetPos() {
+    holder = null; ballPhys = {vx:0, vz:0}; ball.position.set(0,0.6,0);
+    p1.position.set(0,0,40); p1.rotation.y = 0;
+    p2.position.set(0,0,-40); p2.rotation.y = Math.PI;
+}
+</script>
+</body>
+</html>

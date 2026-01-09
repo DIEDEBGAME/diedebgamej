@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>⚡ ULTRA HACKER TERMINAL v12.0 - DIEDEB'S REVENGE ⚡</title>
+    <style>
+        :root { --neon: #00ff00; --danger: #ff0044; --bg: #050505; }
+        body { background: var(--bg); color: var(--neon); font-family: 'Courier New', monospace; margin: 0; overflow: hidden; }
+        
+        /* LLUVIA DE CÓDIGO FONDO */
+        #matrix-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.15; font-size: 10px; overflow: hidden; }
+
+        /* MENÚ ESTILO HACKER */
+        #menu-ui { padding: 30px; text-align: center; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
+        .target-card { 
+            background: rgba(20, 20, 20, 0.8); border: 1px solid var(--neon); border-radius: 5px; 
+            padding: 15px; cursor: pointer; transition: 0.2s; position: relative;
+        }
+        .target-card:hover { background: var(--neon); color: black; box-shadow: 0 0 20px var(--neon); }
+        .target-card span { font-weight: bold; font-size: 0.8rem; }
+
+        /* PANTALLA DE ACCIÓN */
+        .hack-screen { display: none; width: 100vw; height: 100vh; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .log-stream { flex: 1; border: 1px solid #222; background: rgba(0,0,0,0.9); padding: 10px; overflow: hidden; font-size: 0.85rem; line-height: 1.2; }
+        
+        .ws-chisme { background: #0b141a; border: 2px solid #202c33; padding: 15px; border-radius: 10px; margin-bottom: 10px; color: white; }
+
+        /* CRONÓMETRO */
+        .timer { position: fixed; top: 20px; right: 20px; font-size: 2.5rem; color: #ff0000; font-weight: 900; text-shadow: 0 0 10px red; z-index: 100; }
+
+        /* JUMPSCARE FINAL Y PANTALLAZO AZUL */
+        #horror-overlay { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: #fff; color: #000; z-index: 99999; display: none; 
+            flex-direction: column; align-items: center; justify-content: center; 
+            text-align: center; animation: flash 0.1s infinite;
+        }
+        @keyframes flash { 0% { background: #ff0000; } 50% { background: #000; color: #fff; } 100% { background: #ff0000; } }
+
+        #bluescreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0000AA; /* Color azul de pantalla de la muerte */
+            color: #FFFFFF;
+            font-family: 'Consolas', monospace;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            line-height: 1.5;
+            padding: 50px;
+            box-sizing: border-box;
+            z-index: 100000;
+        }
+        #bluescreen h1 { font-size: 2.5rem; margin-bottom: 30px; }
+        #bluescreen p { text-align: left; max-width: 800px; }
+    </style>
+</head>
+<body>
+
+    <div id="matrix-bg"></div>
+
+    <div id="menu-ui">
+        <h1 style="letter-spacing: 5px;">[ DARK_NET_INJECTOR v12.0 ]</h1>
+        <div class="grid">
+            <div class="target-card" onclick="start('DIEDEB')"><span>OFICINAS DE DIEDEB</span></div>
+            <div class="target-card" onclick="start('CRUSH')"><span>CÁMARA CELULAR CRUSH</span></div>
+            <div class="target-card" onclick="start('NASA')"><span>SISTEMA DE LA NASA</span></div>
+            <div class="target-card" onclick="start('WS')"><span>ESPIAR PAPÁS (WS)</span></div>
+            <div class="target-card" onclick="start('BANK')"><span>BANCO CENTRAL</span></div>
+            <div class="target-card" onclick="start('ROBLOX')"><span>ROBLOX ADMIN</span></div>
+            <div class="target-card" onclick="start('TV')"><span>HACKEAR TV SMART</span></div>
+            <div class="target-card" onclick="start('SODA')"><span>YOUTUBE (SODA POP)</span></div>
+        </div>
+    </div>
+
+    <div id="hack-action" class="hack-screen">
+        <div class="timer" id="clock">8</div>
+        <div id="extra-content"></div>
+        <div class="log-stream" id="logs"></div>
+    </div>
+
+    <div id="horror-overlay">
+        <h1 style="font-size: 5rem; margin:0;">!!! ERROR CRÍTICO !!!</h1>
+        <div id="msg-final" style="font-size: 2rem; border: 5px solid black; padding: 20px; background: white; color: black; font-weight: bold; width: 80%;"></div>
+        <h2 style="font-size: 3rem;">EL DEMONIO Y EL SHARK VIENEN POR TI</h2>
+        <p style="font-size: 1.5rem;">LOCALIZANDO COORDENADAS DE TU CASA...</p>
+    </div>
+
+    <div id="bluescreen">
+        <h1>:( Tu PC encontró un problema y necesita reiniciarse.</h1>
+        <p>Estamos recopilando información sobre el error y luego reiniciaremos por ti. (0% completado)</p>
+        <p>Si deseas obtener más información, puedes buscar en línea más tarde este error: DIEDEB_HAS_FOUND_YOU_ERROR</p>
+        <p>No cierres la puerta.</p>
+        <p style="margin-top: 50px;">Presiona cualquier tecla para continuar...</p>
+    </div>
+
+    <script>
+        const matrix = document.getElementById('matrix-bg');
+        setInterval(() => {
+            const line = document.createElement('div');
+            line.innerText = Math.random().toString(36).substring(2, 15) + " 01011010 " + Math.random().toString(36).substring(2, 15);
+            matrix.prepend(line);
+            if(matrix.children.length > 50) matrix.lastChild.remove();
+        }, 50);
+
+        const data = {
+            'DIEDEB': {
+                extra: `<h3>ACCEDIENDO A RED CORPORATIVA DIEDEB...</h3><p>Bypass de seguridad nivel 7...</p><p style="color:red">ALERTA: DIEDEB ha detectado tu intrusión.</p>`,
+                troleo: "DIEDEB TE HA ENCONTRADO. NO CIERRES LA PUERTA."
+            },
+            'CRUSH': {
+                extra: `<h3>CONECTANDO A CÁMARA FRONTAL...</h3><p>Buscando rostro del objetivo...</p><p>Analizando facciones... Espere...</p>`,
+                troleo: "ERROR: OBJETIVO DEMASIADO FEO PARA SER PROCESADO."
+            },
+            'NASA': {
+                extra: `<h3>ACCEDIENDO A SATÉLITE MILITAR</h3><p>Trayectoria orbital calculada...</p><p style="color:red">ALERTA: INTENTO DE HACKEO DETECTADO POR LA NASA.</p>`,
+                troleo: "HACKEANDO... ERROR: ENVIANDO BOMBA A TU CASA."
+            },
+            'WS': {
+                extra: `<div class="ws-chisme"><b>Mamá:</b> Ya sé que se gastó el dinero en juegos.<br><b>Papá:</b> Va a comer puro huevo 1 mes.<br><b>Mamá:</b> Y nada de internet hasta el 2030.</div>`,
+                troleo: "TU MAMÁ ESTÁ DETRÁS DE TI CON LA CHANCLA DE PIEDRA."
+            },
+            'BANK': {
+                extra: `<h3>BANCO CENTRAL</h3><p>Transfiriendo: $0.01...<br>Alerta: EL FBI ESTÁ RASTREANDO TU IP.</p>`,
+                troleo: "DEBES 50 MILLONES DE DÓLARES. PREPARA LA CAJA FUERTE."
+            },
+            'ROBLOX': {
+                extra: `<p>Inyectando virus 'Tralalero Brainrot'...</p>`,
+                troleo: "TU CUENTA FUE BORRADA POR NOOB Y POR USAR HACKS DE POBRES."
+            },
+            'TV': {
+                extra: `<p>Reproduciendo 'Peppa Pig' a máximo volumen en la sala...</p>`,
+                troleo: "TU PAPÁ NO PUEDE VER EL FÚTBOL Y VA ENOJADO A TU CUARTO."
+            },
+            'SODA': {
+                extra: `<p>Subiendo: 'SODA POP REMIX (VERGONZOSO)'... 100%</p>`,
+                troleo: "MAÑANA TODO EL COLEGIO TE CANTARÁ 'ERES MI SODA POP'."
+            }
+        };
+
+        function start(id) {
+            document.getElementById('menu-ui').style.display = 'none';
+            document.getElementById('hack-action').style.display = 'flex';
+            document.getElementById('extra-content').innerHTML = data[id].extra;
+
+            let logs = document.getElementById('logs');
+            let t = 8;
+            
+            const logInt = setInterval(() => {
+                const lines = ["> Bypass firewall...", "> Obteniendo root...", "> Localizando objetivo...", "> Saltando protocolos de seguridad...", "> Recopilando datos...", "> Acceso concedido..."];
+                logs.innerHTML += lines[Math.floor(Math.random()*lines.length)] + "<br>";
+            }, 300);
+
+            const timer = setInterval(() => {
+                t--;
+                document.getElementById('clock').innerText = t;
+                if(t <= 0) {
+                    clearInterval(timer);
+                    clearInterval(logInt);
+                    document.getElementById('msg-final').innerText = data[id].troleo;
+                    document.getElementById('horror-overlay').style.display = 'flex';
+
+                    if (id === 'DIEDEB') {
+                        setTimeout(() => {
+                            document.getElementById('horror-overlay').style.display = 'none';
+                            document.getElementById('bluescreen').style.display = 'flex';
+                            setTimeout(() => {
+                                document.getElementById('bluescreen').addEventListener('keydown', hideBlueScreen);
+                                document.getElementById('bluescreen').addEventListener('click', hideBlueScreen);
+                            }, 3000); // 3 segundos antes de poder quitarlo
+                        }, 500); // Pequeño delay para ver el troleo antes del pantallazo
+                    }
+                }
+            }, 1000);
+        }
+
+        function hideBlueScreen() {
+            document.getElementById('bluescreen').style.display = 'none';
+            // Podrías redirigir a alguna página o reiniciar el "juego" aquí
+            location.reload(); // Para reiniciar el juego y volver al menú
+        }
+    </script>
+</body>
+</html>

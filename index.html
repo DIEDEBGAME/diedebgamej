@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DIEDEB GAMES - PORTAL 2026</title>
+    <style>
+        :root {
+            --neon-green: #ccff00;
+            --neon-blue: #00ffff;
+            --dark-bg: #0a0a0a;
+            --hot-orange: #ff6a00;
+        }
+
+        body {
+            margin: 0; background: var(--dark-bg); color: white;
+            font-family: 'Arial Black', sans-serif; text-align: center; overflow-x: hidden;
+        }
+
+        /* --- SISTEMA DE LOGIN OPCIONAL --- */
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.92); z-index: 1000; display: flex;
+            justify-content: center; align-items: center;
+        }
+        .auth-box {
+            background: #111; padding: 30px; border: 2px solid var(--neon-green);
+            border-radius: 20px; width: 320px; box-shadow: 0 0 40px rgba(204, 255, 0, 0.15);
+        }
+        .auth-box input {
+            width: 100%; padding: 12px; margin: 8px 0; background: #000;
+            border: 1px solid #333; color: white; border-radius: 8px; box-sizing: border-box;
+        }
+        .auth-btn {
+            background: var(--neon-green); color: black; border: none;
+            padding: 12px; width: 100%; border-radius: 10px; font-weight: bold;
+            cursor: pointer; margin-top: 10px; font-size: 14px;
+        }
+        .guest-link {
+            display: block; margin-top: 20px; color: var(--neon-blue);
+            text-decoration: underline; cursor: pointer; font-size: 13px;
+        }
+
+        /* --- BARRA DE USUARIO --- */
+        #user-bar {
+            background: #000; padding: 12px 20px; border-bottom: 1px solid #222;
+            display: none; justify-content: space-between; align-items: center; font-size: 12px;
+        }
+
+        header {
+            padding: 40px 20px;
+            background: linear-gradient(to bottom, rgba(204, 255, 0, 0.05), transparent);
+        }
+        h1 { font-size: clamp(28px, 8vw, 55px); margin: 0; color: var(--neon-green); letter-spacing: -2px; }
+
+        .container { padding: 0 15px 50px 15px; max-width: 1100px; margin: 0 auto; }
+        
+        .section-title {
+            text-align: left; color: var(--neon-blue); font-size: 14px;
+            margin: 35px 0 15px 5px; border-left: 3px solid var(--neon-blue);
+            padding-left: 12px; letter-spacing: 2px;
+        }
+
+        .game-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+        .game-card {
+            background: #151515; border: 1px solid #222; border-radius: 15px; padding: 20px 10px;
+            text-decoration: none; color: white; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .game-card:hover { border-color: var(--neon-green); transform: translateY(-3px); background: #1a1a1a; }
+        .icon { font-size: 35px; margin-bottom: 10px; }
+        .game-name { font-size: 11px; font-weight: bold; line-height: 1.2; }
+
+        footer { padding: 40px; color: #333; font-size: 10px; border-top: 1px solid #111; }
+    </style>
+</head>
+<body>
+
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h2 id="auth-title" style="margin: 0 0 20px 0; color: var(--neon-green);">DIEDEB CLOUD</h2>
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button class="auth-btn" onclick="handleAuth()">REGISTRAR / ENTRAR</button>
+            <span class="guest-link" onclick="closeAuth()">CONTINUAR COMO INVITADO</span>
+        </div>
+    </div>
+
+    <div id="user-bar">
+        <div>USER: <span id="display-user" style="color:var(--neon-green)">-</span></div>
+        <div style="color:#ff3e3e; cursor:pointer" onclick="logout()">CERRAR SESIÓN</div>
+    </div>
+
+    <header>
+        <h1>DIEDEB GAMES</h1>
+        <div style="color:var(--neon-blue); font-size:10px; margin-top:10px; letter-spacing:5px;">HUB OFICIAL</div>
+    </header>
+
+    <div class="container">
+        
+        <div class="section-title">⭐ DESTACADOS</div>
+        <div class="game-grid">
+            <a href="PERO.html" class="game-card"><div class="icon">🐕</div><div class="game-name">DOG CHAMPIONS</div></a>
+            <a href="mafioso.html" class="game-card"><div class="icon">🕶️</div><div class="game-name">MAFIOSO</div></a>
+            <a href="SABRITAS.html" class="game-card"><div class="icon">🍟</div><div class="game-name">SABRITAS GAME</div></a>
+            <a href="Backrooms.html" class="game-card"><div class="icon">👁️</div><div class="game-name">BACKROOMS</div></a>
+        </div>
+
+        <div class="section-title">👥 SOCIAL Y EQUIPOS</div>
+        <div class="game-grid">
+            <a href="crea.html" class="game-card"><div class="icon">🛡️</div><div class="game-name">CREA UN EQUIPO</div></a>
+            <a href="you.html" class="game-card"><div class="icon">🤳</div><div class="game-name">SER INFLUENCER</div></a>
+            <a href="juego_imperio.html" class="game-card"><div class="icon">🏰</div><div class="game-name">IMPERIO</div></a>
+        </div>
+
+        <div class="section-title">⚙️ SIMULACIÓN</div>
+        <div class="game-grid">
+            <a href="tecnology simulator.html" class="game-card"><div class="icon">🖥️</div><div class="game-name">TECH SIMULATOR</div></a>
+            <a href="hacker_simulator.html" class="game-card"><div class="icon">👨‍💻</div><div class="game-name">HACKER SIM</div></a>
+        </div>
+
+        <div class="section-title">🏁 VELOCIDAD Y ACCIÓN</div>
+        <div class="game-grid">
+            <a href="hilux_racing.html" class="game-card"><div class="icon">🛻</div><div class="game-name">HILUX RACING</div></a>
+            <a href="shooter_diedeb.html" class="game-card"><div class="icon">🔫</div><div class="game-name">SHOOTER</div></a>
+            <a href="rpg_bosses.html" class="game-card"><div class="icon">👺</div><div class="game-name">RPG BOSSES</div></a>
+            <a href="futbol_diedeb.html" class="game-card"><div class="icon">⚽</div><div class="game-name">FÚTBOL</div></a>
+        </div>
+
+        <div class="section-title">♾️ ARCADE</div>
+        <div class="game-grid">
+            <a href="barco_infinito.html" class="game-card"><div class="icon">⛵</div><div class="game-name">BARCO INFINITO</div></a>
+            <a href="infinite_lift.html" class="game-card"><div class="icon">🛗</div><div class="game-name">INFINITE LIFT</div></a>
+            <a href="corre_vida.html" class="game-card"><div class="icon">🏃</div><div class="game-name">CORRE VIDA</div></a>
+        </div>
+
+    </div>
+
+    <footer>
+        BOSSES: THE DEMON, THE TITAN, THE SHARK<br>
+        © 2026 DIEDEB GAMES
+    </footer>
+
+    <script>
+        function handleAuth() {
+            const u = document.getElementById('username').value;
+            const p = document.getElementById('password').value;
+            if(u.length < 2) return alert("Ingresa un usuario");
+
+            // Registro automático si no existe
+            if(!localStorage.getItem('user_' + u)) {
+                localStorage.setItem('user_' + u, JSON.stringify({name: u, pass: p}));
+            }
+            
+            localStorage.setItem('diedeb_session', u);
+            location.reload();
+        }
+
+        function closeAuth() {
+            document.getElementById('auth-overlay').style.display = 'none';
+        }
+
+        function logout() {
+            localStorage.removeItem('diedeb_session');
+            location.reload();
+        }
+
+        window.onload = () => {
+            const session = localStorage.getItem('diedeb_session');
+            if(session) {
+                closeAuth();
+                document.getElementById('user-bar').style.display = 'flex';
+                document.getElementById('display-user').innerText = session.toUpperCase();
+            }
+        };
+    </script>
+</body>
+</html>

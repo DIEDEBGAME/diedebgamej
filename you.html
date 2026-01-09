@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>INFLUENCER OSU - PLACAS EDITION</title>
+    <style>
+        :root { --neon: #00ffcc; --hate: #ff4444; --love: #44ff44; --gold: #ffcc00; --silver: #c0c0c0; --diamond: #b9f2ff; }
+        body { margin: 0; background: #050505; color: white; font-family: 'Arial Black', sans-serif; overflow: hidden; touch-action: none; }
+        
+        #header { position: absolute; top: 0; width: 100%; padding: 15px; background: rgba(0,0,0,0.9); display: flex; justify-content: space-around; z-index: 100; border-bottom: 2px solid var(--neon); }
+        .stat span { display: block; font-size: 18px; color: var(--neon); text-align: center; }
+
+        #studio { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #111 0%, #000 100%); }
+        
+        /* ESTANTERÍA DE PLACAS */
+        #trophy-shelf { position: absolute; left: 20px; top: 100px; display: flex; flex-direction: column; gap: 15px; z-index: 5; }
+        .plaque { width: 60px; height: 80px; border-radius: 5px; display: none; flex-direction: column; align-items: center; justify-content: center; font-size: 8px; text-align: center; box-shadow: 0 0 15px rgba(255,255,255,0.2); border: 2px solid #555; position: relative; animation: glow 2s infinite alternate; }
+        @keyframes glow { from { transform: translateY(0); } to { transform: translateY(-5px); } }
+        
+        .p-silver { background: linear-gradient(135deg, #777, #eee); color: #333; border-color: var(--silver); display: none; }
+        .p-gold { background: linear-gradient(135deg, #b8860b, #ffd700); color: #420; border-color: var(--gold); display: none; }
+        .p-diamond { background: linear-gradient(135deg, #e0ffff, #b9f2ff); color: #004; border-color: var(--diamond); display: none; box-shadow: 0 0 25px var(--diamond); }
+
+        #publish-box { background: #1a1a1a; padding: 25px; border-radius: 20px; border: 3px solid var(--neon); text-align: center; z-index: 10; width: 300px; }
+        input { padding: 12px; border-radius: 8px; border: 1px solid var(--neon); width: 90%; margin-bottom: 15px; background: #000; color: white; text-align: center; }
+        
+        #shop { position: absolute; bottom: 0; width: 100%; background: #000; padding: 10px; display: flex; gap: 10px; overflow-x: auto; border-top: 2px solid #333; z-index: 100; }
+        .item { min-width: 100px; background: #111; padding: 10px; border-radius: 8px; border: 1px solid #444; text-align: center; font-size: 10px; }
+        .item button { background: var(--neon); border: none; padding: 8px; width: 100%; border-radius: 4px; font-weight: bold; margin-top: 5px; cursor: pointer; }
+
+        .osu-circle {
+            position: absolute;
+            width: 85px;
+            height: 85px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            user-select: none;
+            animation: emerge 1.3s linear forwards;
+            z-index: 80;
+        }
+
+        @keyframes emerge {
+            0% { transform: scale(0); opacity: 0; }
+            20% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.7); opacity: 0; }
+        }
+
+        .love { border: 5px solid var(--love); color: var(--love); background: rgba(0,0,0,0.6); box-shadow: 0 0 10px var(--love); }
+        .hate { border: 5px solid var(--hate); color: var(--hate); background: rgba(0,0,0,0.6); box-shadow: 0 0 10px var(--hate); }
+        .sponsor { border: 6px dashed var(--gold); color: var(--gold); background: rgba(0,0,0,0.8); z-index: 100; box-shadow: 0 0 20px var(--gold); }
+
+        #timer-bar { position: absolute; top: 78px; left: 0; height: 6px; background: var(--gold); width: 100%; display: none; z-index: 110; }
+    </style>
+</head>
+<body>
+
+<div id="header">
+    <div class="stat">CASH <span id="m-money">$200</span></div>
+    <div class="stat">FOLLOWERS <span id="m-subs">0</span></div>
+    <div class="stat">VIDEOS <span id="v-count">0</span></div>
+</div>
+
+<div id="trophy-shelf">
+    <div id="p100k" class="plaque p-silver">🥈<br><b>100K</b><br>SUBS</div>
+    <div id="p1m" class="plaque p-gold">🥇<br><b>1M</b><br>SUBS</div>
+    <div id="p10m" class="plaque p-diamond">💎<br><b>10M</b><br>SUBS</div>
+</div>
+
+<div id="timer-bar"></div>
+
+<div id="studio">
+    <div id="publish-box">
+        <h2 style="color:var(--neon); margin:0 0 10px 0;">CREAR VIDEO</h2>
+        <input type="text" id="v-title" placeholder="Título del video...">
+        <button onclick="startOsuMatch()" style="background:var(--neon); color:black; border:none; padding:15px; border-radius:10px; font-weight:bold; cursor:pointer; width:100%; font-size:16px;">PUBLICAR ($100)</button>
+    </div>
+</div>
+
+<div id="shop">
+    <div class="item">🎙️ MICRO<br><button onclick="buy(0.1, 150)">$150</button></div>
+    <div class="item">🎮 XBOX<br><button onclick="buy(0.15, 500)">$500</button></div>
+    <div class="item">🖥️ PC PRO<br><button onclick="buy(0.2, 1200)">$1200</button></div>
+</div>
+
+<script>
+    let money = 200, subs = 0, videos = 0, loveChance = 0.35;
+    let isGaming = false;
+
+    function updateUI() {
+        document.getElementById('m-money').innerText = "$" + money;
+        document.getElementById('m-subs').innerText = subs.toLocaleString();
+        document.getElementById('v-count').innerText = videos;
+        checkPlaques();
+    }
+
+    function checkPlaques() {
+        if (subs >= 100000) document.getElementById('p100k').style.display = "flex";
+        if (subs >= 1000000) document.getElementById('p1m').style.display = "flex";
+        if (subs >= 10000000) document.getElementById('p10m').style.display = "flex";
+    }
+
+    function buy(boost, price) {
+        if (money >= price) { money -= price; loveChance += boost; updateUI(); } 
+        else alert("No tienes plata, sigue grabando.");
+    }
+
+    function startOsuMatch() {
+        const title = document.getElementById('v-title').value;
+        if (money < 100) return alert("¡Bancarrota! No puedes publicar.");
+        if (!title) return alert("Pon un título.");
+
+        money -= 100; videos++; updateUI();
+        isGaming = true;
+        document.getElementById('publish-box').style.display = "none";
+        document.getElementById('timer-bar').style.display = "block";
+
+        let time = 10;
+        const gameInterval = setInterval(() => {
+            if(!isGaming) return clearInterval(gameInterval);
+            createCircle();
+        }, 450); 
+
+        const timerInterval = setInterval(() => {
+            time -= 0.1;
+            document.getElementById('timer-bar').style.width = (time*10) + "%";
+            if(time <= 0) {
+                clearInterval(gameInterval); clearInterval(timerInterval);
+                isGaming = false;
+                document.querySelectorAll('.osu-circle').forEach(c => c.remove());
+                document.getElementById('publish-box').style.display = "block";
+                document.getElementById('timer-bar').style.display = "none";
+            }
+        }, 100);
+    }
+
+    function createCircle() {
+        const c = document.createElement('div');
+        c.className = 'osu-circle';
+        let rng = Math.random();
+        let type = rng < loveChance ? 'love' : 'hate';
+        if (Math.random() < 0.08) type = 'sponsor';
+
+        c.classList.add(type);
+        c.innerHTML = type === 'love' ? "<b>LOVE</b>" : type === 'hate' ? "<b>HATE</b>" : "<b>$$$</b>";
+        c.style.left = Math.random()*(window.innerWidth-100) + 'px';
+        c.style.top = Math.random()*(window.innerHeight-250) + 100 + 'px';
+
+        const hit = (e) => {
+            if(!isGaming) return;
+            e.preventDefault();
+            if (type === 'love') { money += 40; subs += 5000; } // Subida de subs para alcanzar placas
+            if (type === 'hate') { money -= 100; } 
+            if (type === 'sponsor') { money += 1500; }
+            c.remove(); updateUI();
+        };
+
+        c.addEventListener('mousedown', hit);
+        c.addEventListener('touchstart', hit);
+        document.body.appendChild(c);
+        setTimeout(() => { if(document.body.contains(c)) { if(type==='sponsor') money -= 200; c.remove(); updateUI(); } }, 1300);
+    }
+
+    updateUI();
+</script>
+</body>
+</html>

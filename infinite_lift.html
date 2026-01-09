@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>THE INFINITE LIFT - DIEDEB GAMES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { 
+            margin: 0; 
+            background: #222; 
+            overflow: hidden; 
+            font-family: 'Arial Black', sans-serif; 
+            touch-action: none; /* Evita zoom y scroll accidental en móvil */
+            user-select: none;
+        }
+        
+        /* Contenedor del Elevador */
+        #elevator-frame {
+            position: relative; 
+            width: 280px; 
+            height: 380px;
+            background: #444; 
+            margin: 30px auto;
+            border: 10px solid #666; 
+            overflow: hidden;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(0,0,0,0.5);
+        }
+
+        /* Puertas */
+        .door {
+            position: absolute; width: 50%; height: 100%;
+            background: linear-gradient(90deg, #888, #aaa);
+            z-index: 10; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid #555;
+        }
+        #door-l { left: 0; }
+        #door-r { right: 0; }
+
+        /* Estado Abierto */
+        .open #door-l { transform: translateX(-100%); }
+        .open #door-r { transform: translateX(100%); }
+
+        /* El objeto a robar */
+        #item { 
+            font-size: 80px; 
+            cursor: pointer; 
+            z-index: 5; 
+            -webkit-tap-highlight-color: transparent; /* Quita cuadro azul en móvil */
+        }
+
+        /* UI */
+        #ui { text-align: center; color: #ccff00; padding-top: 20px; }
+        #floor-count { font-size: 40px; margin: 0; text-shadow: 2px 2px #000; }
+        #msg { color: white; font-size: 16px; font-weight: normal; margin-top: 10px; }
+        
+        .back-btn { 
+            position: absolute; 
+            bottom: 20px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            color: #000; 
+            text-decoration: none; 
+            background: #fff; 
+            padding: 15px 30px; 
+            border-radius: 10px; 
+            font-weight: bold;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1 id="floor-count">PISO: 1</h1>
+        <p id="msg">¡TOCA EL OBJETO RÁPIDO!</p>
+    </div>
+
+    <div id="elevator-frame">
+        <div id="door-l" class="door"></div>
+        <div id="door-r" class="door"></div>
+        <div id="item">🧠</div>
+    </div>
+
+    <a href="index.html" class="back-btn">⬅ SALIR AL MENÚ</a>
+
+    <script>
+        let floor = 1;
+        let canSteal = false;
+        let gameActive = true;
+        let speed = 1500; 
+
+        const frame = document.getElementById('elevator-frame');
+        const item = document.getElementById('item');
+        const floorDisplay = document.getElementById('floor-count');
+        const items = ['🧠', '💎', '👑', '💰', '🍦', '🍕', '💀', '👽', '⭐', '🔥'];
+
+        function nextFloor() {
+            if(!gameActive) return;
+
+            frame.classList.remove('open');
+            canSteal = false;
+            
+            // Tiempo de espera entre pisos
+            setTimeout(() => {
+                if(!gameActive) return;
+                
+                item.innerText = items[Math.floor(Math.random() * items.length)];
+                frame.classList.add('open');
+                canSteal = true;
+
+                // El tiempo se reduce según el piso para aumentar dificultad
+                const currentSpeed = Math.max(350, speed - (floor * 25)); 
+                
+                setTimeout(() => {
+                    if(canSteal && gameActive) {
+                        gameOver("¡MUY LENTO! LAS PUERTAS TE ATRAPARON");
+                    }
+                }, currentSpeed);
+
+            }, 700);
+        }
+
+        // Función unificada para PC y Móvil
+        function handleSteal(e) {
+            if(e) e.preventDefault(); // Evita comportamientos extraños en móvil
+            
+            if(canSteal && gameActive) {
+                canSteal = false;
+                floor++;
+                floorDisplay.innerText = "PISO: " + floor;
+                
+                // Efecto visual de flash
+                document.body.style.backgroundColor = `hsl(${floor * 25}, 40%, 30%)`;
+                
+                // Pequeña animación de escala al tocar
+                item.style.transform = "scale(1.5)";
+                setTimeout(() => { item.style.transform = "scale(1)"; }, 100);
+
+                nextFloor();
+            }
+        }
+
+        // Eventos para ambos sistemas
+        item.addEventListener('touchstart', handleSteal);
+        item.addEventListener('mousedown', handleSteal);
+
+        function gameOver(reason) {
+            if(!gameActive) return;
+            gameActive = false;
+            frame.classList.remove('open');
+            
+            // Usamos un pequeño delay para que se vea la puerta cerrarse
+            setTimeout(() => {
+                alert(reason + "\n\nLlegaste al piso: " + floor);
+                location.reload();
+            }, 300);
+        }
+
+        // Iniciar el elevador
+        setTimeout(nextFloor, 1000);
+    </script>
+</body>
+</html>

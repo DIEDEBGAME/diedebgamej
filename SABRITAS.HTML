@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SNACK EMPIRE - EQUILIBRIO TOTAL</title>
+    <style>
+        :root { --orange: #ff6600; --red: #ff4444; --yellow: #ffcc00; --bg: #0d0d0d; }
+        body { margin: 0; background: var(--bg); color: white; font-family: 'Arial Black', sans-serif; overflow-x: hidden; }
+        
+        #ui-top { position: fixed; top: 0; width: 100%; padding: 15px; background: #000; display: flex; justify-content: space-around; border-bottom: 3px solid var(--orange); z-index: 100; box-sizing: border-box; }
+        .stat span { display: block; font-size: 18px; color: var(--yellow); }
+
+        #game-container { padding: 100px 20px 160px 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+
+        #mixer { background: #1a1a1a; padding: 20px; border-radius: 20px; border: 3px solid #333; width: 100%; max-width: 350px; text-align: center; }
+        input#snack-name { width: 90%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 2px solid var(--orange); background: #000; color: white; text-align: center; font-weight: bold; }
+        
+        .bar-container { background: #000; height: 18px; width: 100%; border-radius: 10px; margin: 10px 0; border: 1px solid #444; }
+        .bar { height: 100%; width: 0%; border-radius: 10px; transition: width 0.3s; }
+        
+        .btn-ing { padding: 12px 5px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 11px; width: 30%; margin: 0 1%; color: white; }
+
+        #catalog { width: 100%; max-width: 350px; background: #151515; padding: 15px; border-radius: 15px; border: 1px solid #222; }
+        .saved-snack { background: #222; padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-remake { background: var(--orange); border: none; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; color: white; }
+
+        #shop { position: fixed; bottom: 0; width: 100%; background: #000; padding: 15px; display: flex; gap: 10px; overflow-x: auto; border-top: 2px solid var(--orange); z-index: 100; box-sizing: border-box; }
+        .upgrade { min-width: 140px; background: #111; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #333; }
+        .upgrade button { background: var(--yellow); border: none; padding: 8px; width: 100%; border-radius: 4px; font-weight: bold; margin-top: 5px; cursor: pointer; color: black; }
+
+        #log-box { font-size: 14px; color: var(--yellow); text-align: center; height: 20px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="ui-top">
+    <div class="stat">DINERO <span id="m-money">$200</span></div>
+    <div class="stat">BOLSAS <span id="m-bags">0</span></div>
+    <div class="stat">FAMA <span id="m-success">10%</span></div>
+</div>
+
+<div id="game-container">
+    <div id="log-box">¡Prepara el Snack Viral!</div>
+
+    <div id="mixer">
+        <input type="text" id="snack-name" placeholder="NOMBRE DEL SNACK">
+        
+        <div class="bar-container"><div id="bar-sal" class="bar" style="background: white;"></div></div>
+        <div class="bar-container"><div id="bar-chile" class="bar" style="background: var(--red);"></div></div>
+        <div class="bar-container"><div id="bar-crunch" class="bar" style="background: var(--orange);"></div></div>
+
+        <div style="margin-bottom: 15px;">
+            <button class="btn-ing" style="background: #777;" onclick="addIng('sal')">SAL</button>
+            <button class="btn-ing" style="background: var(--red);" onclick="addIng('chile')">CHILE</button>
+            <button class="btn-ing" style="background: var(--orange);" onclick="addIng('crunch')">CRUNCH</button>
+        </div>
+
+        <button onclick="saveAndCook()" style="background: #2ecc71; color: white; padding: 18px; width: 100%; border-radius: 12px; border: none; font-weight: bold; cursor: pointer; font-size: 16px;">FABRICAR LOTE</button>
+    </div>
+
+    <div id="catalog">
+        <h4 style="margin:0 0 10px 0; color: var(--orange);">RECETAS GUARDADAS</h4>
+        <div id="saved-list"></div>
+    </div>
+</div>
+
+<div id="shop">
+    <div class="upgrade">🏪 PUESTO<br><button onclick="buyUpgrade(5, 150, 2)">$150</button></div>
+    <div class="upgrade">🚚 CAMIÓN<br><button onclick="buyUpgrade(20, 600, 5)">$600</button></div>
+    <div class="upgrade">📣 MARKETING<br><button onclick="buyUpgrade(0, 1200, 25)">$1200</button></div>
+    <div class="upgrade">🏭 FÁBRICA<br><button onclick="buyUpgrade(100, 5000, 15)">$5000</button></div>
+</div>
+
+<script>
+    let money = 200, bags = 0, successRate = 10, multiplier = 1;
+    let recipe = { sal: 0, chile: 0, crunch: 0 };
+    let savedSnacks = [];
+
+    function addIng(type) {
+        if(recipe[type] < 100) {
+            recipe[type] += 20;
+            document.getElementById(`bar-${type}`).style.width = recipe[type] + "%";
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('m-money').innerText = "$" + Math.floor(money);
+        document.getElementById('m-bags').innerText = bags;
+        document.getElementById('m-success').innerText = successRate + "%";
+        renderCatalog();
+    }
+
+    function buyUpgrade(prod, cost, fame) {
+        if(money >= cost) {
+            money -= cost;
+            multiplier += prod;
+            successRate += fame;
+            updateUI();
+        } else alert("Dinero insuficiente.");
+    }
+
+    function saveAndCook() {
+        let name = document.getElementById('snack-name').value.trim() || "Snack Pro";
+        let newSnack = { name, sal: recipe.sal, chile: recipe.chile, crunch: recipe.crunch };
+
+        if(!savedSnacks.find(s => s.name === name)) {
+            savedSnacks.push(newSnack);
+        }
+
+        produce(newSnack);
+        recipe = { sal: 0, chile: 0, crunch: 0 };
+        document.querySelectorAll('.bar').forEach(b => b.style.width = "0%");
+    }
+
+    function produce(snack) {
+        let batchSize = 100 * multiplier;
+        bags += batchSize;
+        document.getElementById('log-box').innerText = `Producidas ${batchSize} bolsas de ${snack.name}`;
+        updateUI();
+    }
+
+    function renderCatalog() {
+        const list = document.getElementById('saved-list');
+        list.innerHTML = "";
+        savedSnacks.forEach(s => {
+            let div = document.createElement('div');
+            div.className = 'saved-snack';
+            div.innerHTML = `<span>${s.name}</span> <button class="btn-remake" onclick='remake(${JSON.stringify(s)})'>HACER</button>`;
+            list.appendChild(div);
+        });
+    }
+
+    function remake(snack) {
+        produce(snack);
+    }
+
+    // CICLO DE VENTA EQUILIBRADO
+    setInterval(() => {
+        if(bags > 0) {
+            // Venta base por cada punto de multiplicador (tiendas)
+            let baseSales = Math.ceil(multiplier * 0.8);
+            // El éxito (fama) da un empujón aleatorio
+            let bonusSales = Math.floor(Math.random() * (successRate / 4));
+            
+            let totalToSell = baseSales + bonusSales;
+            let sold = Math.min(bags, totalToSell);
+
+            if(sold > 0) {
+                bags -= sold;
+                money += sold * 5; // Precio estable de $5 por bolsa
+                document.getElementById('log-box').innerText = `Mercado: Vendiste ${sold} bolsas.`;
+            }
+            updateUI();
+        }
+    }, 1500); // Se vende cada 1.5 segundos
+
+    updateUI();
+</script>
+</body>
+</html>

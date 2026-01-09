@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DIEDEB RACING - PORTAL RAMDOM</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Arial Black', sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; color: white; z-index: 10; pointer-events: none; text-shadow: 2px 2px #000; }
+        #timer-box { font-size: 35px; color: #ffcc00; display: none; background: rgba(0,0,0,0.8); padding: 15px; border: 3px solid #0ff; border-radius: 10px; }
+        #mision-info { position: absolute; top: 20px; right: 20px; text-align: right; color: #fff; }
+        .controls { position: absolute; bottom: 5%; width: 100%; display: flex; justify-content: space-around; z-index: 20; }
+        .btn { width: 75px; height: 75px; background: rgba(255,255,255,0.3); border: 3px solid #fff; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; pointer-events: auto; user-select: none; }
+        #btn-nitro { background: #ff0055; box-shadow: 0 0 20px #ff0055; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <div id="timer-box">⏱️ <span id="time-val">180</span>s</div>
+        <div id="msg" style="color: gold; font-size: 18px; margin-top: 10px;">¡EL PORTAL HA APARECIDO EN ALGÚN LUGAR!</div>
+    </div>
+
+    <div id="mision-info">
+        AUTO: <span id="car-name" style="font-size: 22px; color: #ccff00;">Lambo Huracán</span><br>
+        <span id="race-text" style="color: cyan;">CARRERA 1/4</span>
+    </div>
+
+    <div class="controls">
+        <div style="display: flex; gap: 15px;"><div class="btn" id="b-l">◄</div><div class="btn" id="b-r">►</div></div>
+        <div style="display: flex; gap: 15px;"><div class="btn" id="b-f">GAS</div><div class="btn" id="btn-nitro">R</div></div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); 
+        scene.fog = new THREE.Fog(0x87CEEB, 200, 1500);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 5000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(100, 200, 50); scene.add(sun);
+
+        // --- CIUDAD ---
+        const world = new THREE.Group();
+        const grass = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), new THREE.MeshPhongMaterial({ color: 0x2d5a27 }));
+        grass.rotation.x = -Math.PI/2; world.add(grass);
+
+        for(let i = -5; i <= 5; i++) {
+            const rH = new THREE.Mesh(new THREE.PlaneGeometry(4000, 35), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+            rH.rotation.x = -Math.PI/2; rH.position.set(0, 0.1, i * 400); world.add(rH);
+            const rV = new THREE.Mesh(new THREE.PlaneGeometry(35, 4000), new THREE.MeshPhongMaterial({ color: 0x222222 }));
+            rV.rotation.x = -Math.PI/2; rV.position.set(i * 400, 0.1, 0); world.add(rV);
+        }
+        scene.add(world);
+
+        // VEGETACIÓN Y EDIFICIOS
+        for(let i=0; i<80; i++) {
+            const x = Math.random()*2000-1000, z = Math.random()*2000-1000;
+            if(Math.abs(x)>50 || Math.abs(z)>50){
+                const t = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 6), new THREE.MeshPhongMaterial({color: 0x5d2906}));
+                t.position.set(x, 3, z); scene.add(t);
+                const c = new THREE.Mesh(new THREE.SphereGeometry(4.5), new THREE.MeshPhongMaterial({color: 0x1a5d1a}));
+                c.position.set(x, 8, z); scene.add(c);
+            }
+        }
+
+        // BOTS
+        const bots = [];
+        for(let i=0; i<30; i++) {
+            const b = new THREE.Group();
+            b.add(new THREE.Mesh(new THREE.BoxGeometry(4, 2, 7), new THREE.MeshPhongMaterial({color: 0x333333})));
+            b.position.set(Math.random()*1200-600, 1, Math.random()*1200-600);
+            scene.add(b); bots.push(b);
+        }
+
+        // PISTA NARANJA
+        const pista = new THREE.Group();
+        pista.add(new THREE.Mesh(new THREE.BoxGeometry(110, 1, 3000), new THREE.MeshPhongMaterial({color: 0xff6600})));
+        pista.position.set(10000, 0, 10000);
+        const meta = new THREE.Mesh(new THREE.BoxGeometry(130, 30, 5), new THREE.MeshBasicMaterial({color: 0x00ff00, wireframe: true}));
+        meta.position.set(10000, 15, 11400); scene.add(meta);
+        
+        const obstaculos = [];
+        for(let i=0; i<12; i++) {
+            const obs = new THREE.Mesh(new THREE.BoxGeometry(25, 8, 5), new THREE.MeshPhongMaterial({color: 0xff0000}));
+            obs.position.set(9960 + Math.random()*80, 4, 10100 + (i * 120));
+            scene.add(obs);
+            obstaculos.push({mesh: obs, dir: Math.random() > 0.5 ? 1 : -1});
+        }
+        scene.add(pista);
+
+        // --- PLAYER ---
+        let carLvl = 0;
+        const config = [{n:"Lambo Huracán", c:0xccff00}, {n:"Ferrari SF90", c:0xff0000}, {n:"Tesla Model S", c:0xffffff}, {n:"HILUX 2026", c:0x888888}];
+        const player = new THREE.Group();
+        const pBody = new THREE.Mesh(new THREE.BoxGeometry(3, 1.2, 7), new THREE.MeshPhongMaterial({color: config[0].c}));
+        pBody.position.y = 0.6; player.add(pBody);
+        scene.add(player);
+
+        // PORTAL RANDOM
+        const portal = new THREE.Mesh(new THREE.BoxGeometry(35, 1, 35), new THREE.MeshBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.6}));
+        function moverPortal() {
+            portal.position.set(Math.random()*1600-800, 0.5, Math.random()*1600-800);
+        }
+        moverPortal();
+        scene.add(portal);
+
+        // CONTROLES
+        let speed = 0, rot = 0, timer = 180, racing = false;
+        const keys = {w:false, a:false, s:false, d:false, r:false};
+        window.onkeydown=(e)=>keys[e.key.toLowerCase()]=true;
+        window.onkeyup=(e)=>keys[e.key.toLowerCase()]=false;
+        const btn=(id,k)=>{
+            const el=document.getElementById(id);
+            el.ontouchstart=(e)=>{e.preventDefault();keys[k]=true;};
+            el.ontouchend=(e)=>{e.preventDefault();keys[k]=false;};
+        };
+        btn('b-f','w'); btn('b-l','a'); btn('b-r','d'); btn('btn-nitro','r');
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const maxS = (keys.r ? 4.0 : 2.2) + (carLvl * 0.3);
+            if(keys.w) speed += 0.08; else if(keys.s) speed -= 0.08; else speed *= 0.98;
+            speed = Math.max(Math.min(speed, maxS), -0.8);
+
+            if(Math.abs(speed) > 0.1) {
+                if(keys.a) rot += 0.05; if(keys.d) rot -= 0.05;
+                player.rotation.y = rot;
+            }
+            player.translateZ(speed);
+
+            bots.forEach(b => {
+                b.translateZ(0.4);
+                if(b.position.distanceTo(new THREE.Vector3(0,0,0)) > 2000) b.position.set(Math.random()*1000-500,1,Math.random()*1000-500);
+                if(b.position.distanceTo(player.position) < 8) speed *= 0.5;
+            });
+
+            const cO = new THREE.Vector3(0, 12, -30).applyQuaternion(player.quaternion);
+            camera.position.lerp(player.position.clone().add(cO), 0.1);
+            camera.lookAt(player.position);
+
+            if(!racing && player.position.distanceTo(portal.position) < 20) {
+                racing = true; timer = 180;
+                player.position.set(10000, 1, 10000); player.rotation.y = 0; rot = 0;
+                document.getElementById('timer-box').style.display = 'block';
+                scene.background.set(0xff4400); 
+            }
+
+            if(racing) {
+                timer -= 1/60; document.getElementById('time-val').innerText = Math.ceil(timer);
+                if(timer <= 0) { alert("¡TIEMPO AGOTADO!"); racing=false; player.position.set(0,1,0); scene.background.set(0x87CEEB); moverPortal(); }
+                
+                obstaculos.forEach(o => {
+                    o.mesh.position.x += 1.0 * o.dir;
+                    if(o.mesh.position.x > 10045 || o.mesh.position.x < 9955) o.dir *= -1;
+                    if(player.position.distanceTo(o.mesh.position) < 10) {
+                        alert("¡CHOCASTE! REINTENTA"); racing = false; speed = 0;
+                        player.position.set(0, 1, 0); scene.background.set(0x87CEEB);
+                        document.getElementById('timer-box').style.display = 'none';
+                        moverPortal();
+                    }
+                });
+
+                if(player.position.distanceTo(meta.position) < 45) {
+                    racing = false; carLvl = Math.min(carLvl + 1, 3);
+                    pBody.material.color.setHex(config[carLvl].c);
+                    document.getElementById('car-name').innerText = config[carLvl].n;
+                    document.getElementById('race-text').innerText = "CARRERA " + (carLvl + 1) + "/4";
+                    if(carLvl===3) { pBody.scale.set(1.8, 2.8, 1.4); }
+                    alert("¡GANASTE! BUSCA EL PORTAL PARA EL SIGUIENTE AUTO");
+                    player.position.set(0, 1, 0); scene.background.set(0x87CEEB);
+                    document.getElementById('timer-box').style.display = 'none';
+                    moverPortal();
+                }
+            }
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>

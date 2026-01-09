@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>BRAINROT SHOOTER PRO - DIEDEB GAMES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Arial Black', sans-serif; touch-action: none; user-select: none; }
+        
+        /* MIRA MEJORADA */
+        #crosshair {
+            position: fixed; top: 50%; left: 50%;
+            width: 40px; height: 40px;
+            border: 2px solid #ccff00; border-radius: 50%;
+            transform: translate(-50%, -50%); z-index: 100; pointer-events: none;
+        }
+        #crosshair::before { content: ''; position: absolute; top: 50%; left: -5px; width: 50px; height: 2px; background: #ccff00; }
+        #crosshair::after { content: ''; position: absolute; left: 50%; top: -5px; width: 2px; height: 50px; background: #ccff00; }
+
+        /* BOTÓN DISPARO MÓVIL */
+        #shoot-btn {
+            position: absolute; bottom: 30px; right: 30px;
+            width: 130px; height: 130px; background: radial-gradient(circle, #ff0000, #990000);
+            border: 5px solid #fff; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: bold; z-index: 1000; box-shadow: 0 0 15px rgba(255,0,0,0.5);
+        }
+
+        #ui { position: absolute; top: 15px; width: 100%; text-align: center; color: #ccff00; font-size: 26px; z-index: 100; text-shadow: 2px 2px #000; pointer-events: none; }
+        
+        .enemy { 
+            position: absolute; font-size: 85px; z-index: 50;
+            transition: transform 0.1s ease-out; 
+            filter: drop-shadow(0 0 10px rgba(255,255,255,0.3));
+        }
+
+        @media (pointer: fine) { #shoot-btn { display: none; } }
+    </style>
+</head>
+<body>
+
+    <div id="ui">AURA: <span id="score">0</span> | VIDAS: <span id="lives">3</span></div>
+    <div id="crosshair"></div>
+    <div id="shoot-btn">DISPARAR</div>
+
+    <script>
+        let score = 0;
+        let lives = 3;
+        let gameActive = true;
+        let spawnRate = 1200; // Empieza más tranquilo (1.2 segundos)
+
+        // Tus Bosses: El Demonio, El Titán y El Tiburón
+        const enemies = ['👹', '🤖', '🦈']; 
+
+        function spawnEnemy() {
+            if (!gameActive) return;
+
+            const enemy = document.createElement('div');
+            enemy.className = 'enemy';
+            enemy.innerText = enemies[Math.floor(Math.random() * enemies.length)];
+            
+            let x = Math.random() * (window.innerWidth - 100);
+            let y = Math.random() * (window.innerHeight - 100);
+            enemy.style.left = x + 'px';
+            enemy.style.top = y + 'px';
+            
+            document.body.appendChild(enemy);
+
+            // Movimiento un poco más suave para que se pueda apuntar
+            let moveInterval = setInterval(() => {
+                x += (Math.random() - 0.5) * 60;
+                y += (Math.random() - 0.5) * 60;
+                enemy.style.left = Math.max(0, Math.min(window.innerWidth - 100, x)) + 'px';
+                enemy.style.top = Math.max(0, Math.min(window.innerHeight - 100, y)) + 'px';
+            }, 150);
+
+            // Tiempo de ataque basado en el progreso (ajustado para no ser imposible)
+            let attackTime = Math.max(700, 2000 - (score * 15)); 
+            
+            let attackTimeout = setTimeout(() => {
+                if (enemy.parentElement) {
+                    clearInterval(moveInterval);
+                    enemy.remove();
+                    takeDamage();
+                }
+            }, attackTime);
+
+            const kill = (e) => {
+                if(e) e.preventDefault();
+                if (!gameActive) return;
+                clearInterval(moveInterval);
+                clearTimeout(attackTimeout);
+                enemy.style.transform = "scale(0)";
+                setTimeout(() => enemy.remove(), 100);
+                score++;
+                document.getElementById('score').innerText = score;
+                
+                // Efecto de acierto
+                document.body.style.border = "10px solid #ccff00";
+                setTimeout(() => document.body.style.border = "none", 50);
+                
+                // Aceleración gradual
+                if (score % 5 === 0) spawnRate = Math.max(500, spawnRate - 80);
+            };
+
+            // Eventos para matar al enemigo
+            enemy.onmousedown = kill;
+            enemy.ontouchstart = kill;
+        }
+
+        function takeDamage() {
+            lives--;
+            document.getElementById('lives').innerText = lives;
+            document.body.style.backgroundColor = "#550000";
+            setTimeout(() => document.body.style.backgroundColor = "#000", 100);
+            
+            if (lives <= 0) {
+                gameActive = false;
+                alert("¡FIN DEL JUEGO!\nRecolectaste " + score + " de Aura.");
+                location.reload();
+            }
+        }
+
+        function gameLoop() {
+            if (gameActive) {
+                spawnEnemy();
+                setTimeout(gameLoop, spawnRate);
+            }
+        }
+
+        // Disparo central para el botón móvil
+        document.getElementById('shoot-btn').addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const element = document.elementFromPoint(centerX, centerY);
+            if (element && element.className === 'enemy') {
+                // Forzar el evento de click/touch en el enemigo detectado
+                element.dispatchEvent(new Event('mousedown'));
+            }
+        });
+
+        gameLoop();
+    </script>
+</body>
+</html>

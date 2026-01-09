@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DIEDEB: JUICE WARS - HÍBRIDO</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #1a1a1a; font-family: 'Arial Black', sans-serif; touch-action: none; }
+        #ui {
+            position: absolute; top: 10px; left: 10px; color: white;
+            background: rgba(0,0,0,0.85); padding: 10px; border: 1px solid #ccff00;
+            z-index: 10; border-radius: 8px; pointer-events: none; font-size: 12px;
+        }
+        #notif-panel {
+            position: absolute; top: 10px; right: 10px; width: 150px;
+            color: #00ffff; font-size: 10px; font-family: monospace; height: 80px; overflow: hidden; text-align: right;
+        }
+        .level-up { color: #ff00ff; font-size: 25px; position: absolute; top: 30%; left: 50%; transform: translateX(-50%); display: none; text-shadow: 0 0 10px #ff00ff; z-index: 100; }
+        
+        /* CONTROLES MÓVIL (Se muestran solo si es touch) */
+        #mobile-controls { display: none; position: absolute; bottom: 20px; width: 100%; height: 180px; pointer-events: none; z-index: 50; }
+        #joystick-area { position: absolute; left: 20px; bottom: 20px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; pointer-events: auto; }
+        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #ccff00; border-radius: 50%; opacity: 0.5; }
+        #action-buttons { position: absolute; right: 20px; bottom: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; pointer-events: auto; }
+        .btn { 
+            width: 70px; height: 70px; border-radius: 50%; border: 2px solid #ccff00; 
+            background: rgba(0,0,0,0.6); color: #ccff00; font-size: 10px; font-weight: bold;
+            display: flex; justify-content: center; align-items: center; text-align: center;
+        }
+        .btn:active { background: #ccff00; color: black; }
+        
+        /* Instrucciones PC */
+        #pc-help { color: #aaa; font-size: 9px; margin-top: 5px; display: block; }
+        @media (pointer: coarse) { #pc-help { display: none; } #mobile-controls { display: block; } }
+    </style>
+</head>
+<body>
+
+<div id="ui">
+    <div style="color: #ccff00;">MAFIA: <span id="m-name">---</span> | LVL: <span id="lvl">1</span></div>
+    <div>$: <span id="m-val">0</span> | JUGOS: <span id="j-val">0</span></div>
+    <div>HP BASE: <span id="h-val">100</span> | SQUAD: <span id="rec-val">0</span></div>
+    <div id="pc-help">[WASD] Mover | [E] Disparar | [R] Reclutar | [M] Máquina | [B] Reparar</div>
+</div>
+
+<div id="notif-panel"></div>
+<div id="lvl-up-msg" class="level-up">¡PRECIOS SUBIERON!</div>
+
+<div id="mobile-controls">
+    <div id="joystick-area"><div id="joystick-stick"></div></div>
+    <div id="action-buttons">
+        <div class="btn" id="btn-shoot" style="grid-column: span 2; width: 100%; height: 60px; border-radius: 10px;">DISPARAR (E)</div>
+        <div class="btn" id="btn-r">SQUAD (R)</div>
+        <div class="btn" id="btn-m">MAQ (M)</div>
+        <div class="btn" id="btn-b" style="grid-column: span 2; width: 100%; height: 40px; border-radius: 10px;">REPARAR (B)</div>
+    </div>
+</div>
+
+<canvas id="game-canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+
+    let mafiaName = prompt("Nombre de tu Mafia:", "Bing Empire") || "Bing Empire";
+    document.getElementById('m-name').innerText = mafiaName;
+
+    let money = 600, juices = 20, hp = 100, machines = 0, worldX = 0, level = 1, totalSold = 0;
+    const player = { x: 200, y: canvas.height / 2 + 50 };
+    const bots = [], recruits = [], bullets = [], enemies = [];
+    const keys = {};
+
+    // --- ENTRADA HÍBRIDA (PC + MÓVIL) ---
+    let moveDir = { x: 0, y: 0 };
+    window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; handleActions(e.key.toLowerCase()); };
+    window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+
+    function handleActions(k) {
+        if(k === 'e') bullets.push({ x: player.x + worldX + 25, y: player.y + 15 });
+        if(k === 'r' && money >= 100) { money -= 100; recruits.push({ x: player.x+worldX, y: player.y, dir: 1, color: "#0088ff", hp: 20 }); updateUI(); }
+        if(k === 'm' && money >= 1000) { money -= 1000; machines++; updateUI(); }
+        if(k === 'b' && money >= 500) { hp = Math.min(100, hp + 40); money -= 500; updateUI(); }
+    }
+
+    // Joystick
+    const stick = document.getElementById('joystick-stick');
+    document.getElementById('joystick-area').addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const rect = e.currentTarget.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2, centerY = rect.top + rect.height / 2;
+        let dx = touch.clientX - centerX, dy = touch.clientY - centerY;
+        const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40), angle = Math.atan2(dy, dx);
+        moveDir.x = Math.cos(angle) * (dist / 40); moveDir.y = Math.sin(angle) * (dist / 40);
+        stick.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+    });
+    document.getElementById('joystick-area').addEventListener('touchend', () => {
+        moveDir = { x: 0, y: 0 }; stick.style.transform = `translate(0px, 0px)`;
+    });
+
+    // Botones Móvil
+    document.getElementById('btn-shoot').onclick = () => handleActions('e');
+    document.getElementById('btn-r').onclick = () => handleActions('r');
+    document.getElementById('btn-m').onclick = () => handleActions('m');
+    document.getElementById('btn-b').onclick = () => handleActions('b');
+
+    // --- LÓGICA CORE ---
+    function addNotif(msg) {
+        const n = document.createElement('div'); n.innerHTML = "> " + msg;
+        const panel = document.getElementById('notif-panel');
+        panel.insertBefore(n, panel.firstChild);
+        setTimeout(() => n.remove(), 3000);
+    }
+
+    setInterval(() => { if(machines > 0) { juices += (machines * 4); updateUI(); } }, 30000);
+    setInterval(() => {
+        addNotif("🚨 ¡ATAQUE RIVAL!");
+        for(let i=0; i<8; i++) enemies.push({ x: worldX + canvas.width + (i*60), y: Math.random() * (canvas.height-300)+200, speed: 2.5 });
+    }, 60000);
+
+    setInterval(() => {
+        let nBots = bots.filter(b => b.type === "normal");
+        if(nBots.length > 0 && Math.random() > 0.4) {
+            let b = nBots[Math.floor(Math.random() * nBots.length)];
+            b.type = "cliente"; b.msg = "¡JUGUITO!";
+        }
+    }, 4000);
+
+    for(let i=0; i<40; i++) bots.push({ x: Math.random() * 5000, y: Math.random() * (canvas.height-300)+200, type: "normal", msg: "", speed: Math.random()*1.5 });
+
+    function updateUI() {
+        document.getElementById('m-val').innerText = Math.floor(money).toLocaleString();
+        document.getElementById('j-val').innerText = juices;
+        document.getElementById('h-val').innerText = hp;
+        document.getElementById('lvl').innerText = level;
+        document.getElementById('rec-val').innerText = recruits.length;
+    }
+
+    function update() {
+        // Movimiento (Teclado + Joystick)
+        let vx = moveDir.x * 8;
+        let vy = moveDir.y * 8;
+        if(keys['a']) vx = -8; if(keys['d']) vx = 8;
+        if(keys['w']) vy = -8; if(keys['s']) vy = 8;
+        
+        worldX += vx; player.y += vy;
+        if(player.y < 200) player.y = 200;
+        if(player.y > canvas.height - 120) player.y = canvas.height - 120;
+
+        // Venta automática
+        bots.forEach(b => {
+            if(Math.abs((player.x+worldX)-b.x) < 50 && Math.abs(player.y-b.y) < 50 && b.type === "cliente" && juices > 0) {
+                money += 100 * level; juices--; totalSold++;
+                b.type = "normal"; b.msg = "¡FRESCO!"; 
+                if(totalSold >= 10) { level++; totalSold = 0; document.getElementById('lvl-up-msg').style.display="block"; setTimeout(()=>document.getElementById('lvl-up-msg').style.display="none", 2000); }
+                updateUI();
+            }
+        });
+
+        bullets.forEach((b, bi) => {
+            b.x += 15;
+            enemies.forEach((en, ei) => {
+                if(b.x > en.x && b.x < en.x+30 && Math.abs(b.y - en.y) < 30) {
+                    enemies.splice(ei, 1); bullets.splice(bi, 1); money += 50; updateUI();
+                }
+            });
+            if(b.x > worldX + canvas.width) bullets.splice(bi, 1);
+        });
+
+        enemies.forEach((en, ei) => {
+            en.x -= en.speed;
+            if(en.x < worldX + 50) { hp -= 10; enemies.splice(ei, 1); addNotif("¡DAÑO A BASE!"); updateUI(); }
+            recruits.forEach((r, ri) => {
+                if(Math.abs(en.x - r.x) < 30 && Math.abs(en.y - r.y) < 30) {
+                    r.hp -= 0.15; if(r.hp <= 0) recruits.splice(ri, 1);
+                }
+            });
+        });
+
+        recruits.forEach(r => {
+            if(enemies.length > 0) {
+                r.st = (r.st || 0) + 1;
+                if(r.st > 50) { bullets.push({ x: r.x + 20, y: r.y + 15 }); r.st = 0; }
+            }
+            let target = bots.find(b => b.type === "cliente");
+            if(target && juices > 0) {
+                if(r.x < target.x) r.x += 3; else r.x -= 3;
+                if(r.y < target.y) r.y += 1.5; else r.y -= 1.5;
+                if(Math.abs(r.x - target.x) < 20 && Math.abs(r.y - target.y) < 20) {
+                    money += 100 * level; juices--; totalSold++;
+                    target.type = "normal"; target.msg = "ENTREGADO"; updateUI();
+                }
+            } else {
+                r.x += r.dir * 1.5; if(r.x > 5000 || r.x < 0) r.dir *= -1;
+            }
+        });
+        if(hp <= 0) { alert("Tu imperio ha caido."); location.reload(); }
+    }
+
+    function drawHuman(x, y, color, msg = "", hpVal = null) {
+        let sx = x - worldX;
+        if(sx < -100 || sx > canvas.width + 100) return;
+        ctx.fillStyle = "#ffdbac"; ctx.fillRect(sx+7, y-15, 16, 16); 
+        ctx.fillStyle = color; ctx.fillRect(sx, y, 30, 40); 
+        if(msg) { ctx.fillStyle = "white"; ctx.font = "bold 10px Arial"; ctx.fillText(msg, sx-10, y-20); }
+        if(hpVal !== null) { ctx.fillStyle = "red"; ctx.fillRect(sx, y-25, 30, 4); ctx.fillStyle = "lime"; ctx.fillRect(sx, y-25, (hpVal/20)*30, 4); }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#2a2a2a"; ctx.fillRect(0, 200, canvas.width, canvas.height - 300);
+        let baseStartX = 50 - worldX;
+        ctx.fillStyle = "#111"; ctx.fillRect(baseStartX, 180, 150, 220);
+        ctx.strokeStyle = "#ccff00"; ctx.strokeRect(baseStartX, 180, 150, 220);
+        bots.forEach(b => drawHuman(b.x, b.y, b.type === "cliente" ? "#00ffff" : "#666", b.msg));
+        recruits.forEach(r => drawHuman(r.x, r.y, "#0088ff", "SQUAD", r.hp));
+        enemies.forEach(en => drawHuman(en.x, en.y, "#8b0000", "RIVAL"));
+        drawHuman(player.x + worldX, player.y, "#00ff00", "DON");
+        ctx.fillStyle = "#00ffff"; bullets.forEach(b => ctx.fillRect(b.x-worldX, b.y, 10, 5));
+    }
+
+    function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
+    updateUI(); gameLoop();
+</script>
+</body>
+</html>

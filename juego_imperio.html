@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>BRAINROT EMPIRE: SIGMA UPDATE - DIEDEB GAMES</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; color: white; touch-action: none; }
+        #ui-fixed { position: absolute; top: 10px; left: 10px; z-index: 100; pointer-events: none; }
+        #aura-count { font-size: 35px; color: #ccff00; text-shadow: 2px 2px #000; transition: all 0.1s; }
+        
+        /* EFECTO SIGMA */
+        .sigma-glow { text-shadow: 0 0 20px #ccff00, 0 0 40px #fff !important; transform: scale(1.2); }
+
+        /* JOYSTICK */
+        #joystick-zone { 
+            position: absolute; bottom: 50px; left: 50px; 
+            width: 120px; height: 120px; 
+            background: rgba(204, 255, 0, 0.1); border-radius: 50%; 
+            border: 2px solid #ccff00; z-index: 1000; display: none;
+        }
+        #joystick-stick { position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; background: #ccff00; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+
+        /* BOTÓN ACCIÓN */
+        #action-button { 
+            position: absolute; bottom: 50px; right: 50px; 
+            width: 110px; height: 110px; background: rgba(204, 255, 0, 0.5); 
+            border: 5px solid #fff; border-radius: 50%; z-index: 1000;
+            display: flex; align-items: center; justify-content: center; color: black; font-weight: bold;
+            user-select: none; -webkit-tap-highlight-color: transparent;
+            box-shadow: 0 0 15px rgba(204,255,0,0.5);
+        }
+
+        .top-btns { position: absolute; top: 10px; right: 10px; z-index: 1000; display: flex; gap: 10px; }
+        .t-btn { padding: 12px; background: #ccff00; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 2px 2px 0 #fff; }
+
+        .menu-panel { display: none; position: fixed; top: 5%; left: 5%; width: 90%; height: 85%; background: rgba(0,0,0,0.95); border: 4px solid #ccff00; z-index: 2000; overflow-y: scroll; padding: 20px; border-radius: 15px; box-sizing: border-box; }
+        .shop-item { background: #222; padding: 15px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #444; cursor: pointer; }
+        .close-btn { background: red; color: white; width: 100%; padding: 15px; font-size: 18px; border-radius: 10px; margin-top: 10px; cursor: pointer; }
+
+        #crosshair { position: fixed; top: 50%; left: 50%; width: 6px; height: 6px; background: #ccff00; border-radius: 50%; transform: translate(-50%, -50%); z-index: 10; pointer-events: none; }
+        
+        @media (pointer: coarse) { #joystick-zone { display: block; } }
+    </style>
+</head>
+<body>
+
+    <div id="ui-fixed">
+        <div id="aura-count">AURA: 0</div>
+        <div id="multiplier-tag" style="color: #fff; font-size: 14px;">STATUS: NEWMIE</div>
+    </div>
+
+    <div class="top-btns">
+        <button class="t-btn" onclick="openMenu('shop-menu')">TIENDA SIGMA</button>
+    </div>
+
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+    <div id="action-button">MEW!</div>
+    <div id="crosshair"></div>
+
+    <div id="shop-menu" class="menu-panel">
+        <h2>TIENDA DE SKIBIDIS</h2>
+        <div id="shop-list"></div>
+        <button class="close-btn" onclick="closeMenus()">VOLVER AL GRIND</button>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://cdn.skypack.dev/three@0.132.2';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // ILUMINACIÓN DISCO (NUEVO)
+        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambient);
+        const pointLight = new THREE.PointLight(0xccff00, 2, 50);
+        pointLight.position.set(0, 5, -5);
+        scene.add(pointLight);
+
+        // HABITACIÓN
+        const room = new THREE.Mesh(new THREE.BoxGeometry(60, 30, 60), new THREE.MeshPhongMaterial({ color: 0x050505, side: THREE.BackSide }));
+        scene.add(room);
+
+        // EL PC (EL OBJETO DE CLIC)
+        const pc = new THREE.Mesh(new THREE.BoxGeometry(4, 2.5, 0.2), new THREE.MeshPhongMaterial({color: 0x00ff00, emissive: 0x003300}));
+        pc.position.set(0, -1, -15);
+        scene.add(pc);
+
+        let aura = 0, auraPerClick = 1, auraPerSec = 0;
+        let rotX = 0, rotY = 0;
+        let joyX = 0, joyY = 0;
+        let keys = {};
+        let lastTouchX = 0, lastTouchY = 0, isTouchingCamera = false;
+        let fever = 0; // NUEVO: Para el modo Sigma
+
+        // --- SISTEMA DE CÁMARA (MÓVIL Y PC) ---
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest('#joystick-zone') && !e.target.closest('#action-button') && !e.target.closest('.t-btn')) {
+                isTouchingCamera = true;
+                lastTouchX = e.touches[0].clientX;
+                lastTouchY = e.touches[0].clientY;
+            }
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (isTouchingCamera) {
+                const t = e.touches[0];
+                rotY -= (t.clientX - lastTouchX) * 0.007;
+                rotX -= (t.clientY - lastTouchY) * 0.007;
+                rotX = Math.max(-1.5, Math.min(1.5, rotX));
+                lastTouchX = t.clientX; lastTouchY = t.clientY;
+            }
+        }, { passive: false });
+        document.addEventListener('touchend', () => isTouchingCamera = false);
+
+        document.body.addEventListener('mousedown', (e) => {
+            if(!document.pointerLockElement && window.innerWidth > 1024 && e.target.tagName !== 'BUTTON') {
+                document.body.requestPointerLock();
+            }
+        });
+        document.addEventListener('mousemove', (e) => {
+            if(document.pointerLockElement === document.body) {
+                rotY -= e.movementX * 0.002;
+                rotX -= e.movementY * 0.002;
+                rotX = Math.max(-1.5, Math.min(1.5, rotX));
+            }
+        });
+
+        // --- JOYSTICK ---
+        const zone = document.getElementById('joystick-zone');
+        const stick = document.getElementById('joystick-stick');
+        zone.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const t = e.touches[0];
+            const rect = zone.getBoundingClientRect();
+            const dx = t.clientX - (rect.left + rect.width/2);
+            const dy = t.clientY - (rect.top + rect.height/2);
+            const dist = Math.min(50, Math.sqrt(dx*dx + dy*dy));
+            const angle = Math.atan2(dy, dx);
+            joyX = Math.cos(angle) * (dist / 50);
+            joyY = Math.sin(angle) * (dist / 50);
+            stick.style.transform = `translate(calc(-50% + ${Math.cos(angle)*dist}px), calc(-50% + ${Math.sin(angle)*dist}px))`;
+        });
+        zone.addEventListener('touchend', () => { joyX = 0; joyY = 0; stick.style.transform = 'translate(-50%, -50%)'; });
+
+        // --- CLIC CON EFECTO BRAINROT ---
+        function doClick() {
+            const ray = new THREE.Raycaster();
+            ray.setFromCamera(new THREE.Vector2(0,0), camera);
+            if(ray.intersectObject(pc).length > 0){
+                // Ganar Aura
+                const gain = auraPerClick * (fever > 50 ? 2 : 1);
+                aura += gain;
+                fever += 2;
+
+                // Animación PC
+                pc.scale.set(1.3, 1.3, 1);
+                setTimeout(() => pc.scale.set(1,1,1), 50);
+
+                // UI feedback
+                const countText = document.getElementById('aura-count');
+                countText.classList.add('sigma-glow');
+                setTimeout(() => countText.classList.remove('sigma-glow'), 100);
+            }
+        }
+        document.getElementById('action-button').addEventListener('touchstart', (e) => { e.preventDefault(); doClick(); });
+        document.addEventListener('mousedown', (e) => { if(document.pointerLockElement === document.body) doClick(); });
+
+        // --- MENÚS ---
+        window.openMenu = (id) => { document.exitPointerLock(); document.getElementById(id).style.display = 'block'; };
+        window.closeMenus = () => { document.querySelectorAll('.menu-panel').forEach(m => m.style.display = 'none'); };
+
+        const sl = document.getElementById('shop-list');
+        const items = ["Skibidi Toilet", "Grimace Shake", "Fanum Tax", "Ohio Level", "GigaChad Jawline"];
+        items.forEach((name, i) => {
+            let d = document.createElement('div'); d.className='shop-item';
+            d.innerHTML = `${name} | Costo: ${(i+1)*50} | +${i+1}/s`;
+            d.onclick = () => { if(aura >= (i+1)*50) { aura -= (i+1)*50; auraPerSec += (i+1); } };
+            sl.appendChild(d);
+        });
+
+        window.onkeydown = (e) => keys[e.key.toLowerCase()] = true;
+        window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            camera.rotation.order = 'YXZ';
+            camera.rotation.y = rotY; camera.rotation.x = rotX;
+            
+            let speed = 0.2;
+            if(keys['w']) camera.translateZ(-speed);
+            if(keys['s']) camera.translateZ(speed);
+            if(keys['a']) camera.translateX(-speed);
+            if(keys['d']) camera.translateX(speed);
+            
+            camera.translateZ(joyY * speed);
+            camera.translateX(joyX * speed);
+            camera.position.y = 0;
+
+            // Lógica Fever (Modo Sigma)
+            if(fever > 0) fever -= 0.2;
+            if(fever > 50) {
+                document.getElementById('multiplier-tag').innerText = "STATUS: SIGMA MODE (X2 AURA)";
+                document.getElementById('multiplier-tag').style.color = "#ccff00";
+                pointLight.color.setHex(Math.random() * 0xffffff); // Luces locas
+            } else {
+                document.getElementById('multiplier-tag').innerText = "STATUS: NEWMIE";
+                document.getElementById('multiplier-tag').style.color = "#fff";
+                pointLight.color.setHex(0xccff00);
+            }
+
+            aura += (auraPerSec / 60);
+            document.getElementById('aura-count').innerText = "AURA: " + Math.floor(aura);
+            renderer.render(scene, camera);
+        }
+        animate();
+    </script>
+</body>
+</html>
